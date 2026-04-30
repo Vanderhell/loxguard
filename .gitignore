@@ -1,5 +1,7 @@
 # Build artifacts
 build/
+build_noeco/
+build_nvlog/
 *.obj
 *.lib
 *.exp
@@ -21,3 +23,7 @@ Testing/
 
 # Test outputs
 *.log
+
+# Local companion ecosystem checkouts (not tracked in this repo)
+ecosystem/*
+!ecosystem/.gitkeep
