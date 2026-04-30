@@ -302,16 +302,41 @@ int test_pipeline_suite(void) {
     failed |= expect(strcmp(imported_bb.events[1].block_name, "ok_b") == 0, "csv import mixed second block");
 
 #if defined(LOXGUARD_USE_MICRORES) && defined(LOXGUARD_HAVE_MICRORES)
+    size_t before_count;
+    int saw_oob = 0;
     lox_adapter_recovery_reset();
+    memset(out_fail, 0x22, sizeof(out_fail));
     report = lox_run_checked_parser_demo(in, sizeof(in), out_fail, sizeof(out_fail), scratch_ok, sizeof(scratch_ok), &bb);
     failed |= expect(strcmp(report.reason, "BOUNDS") == 0, "microres fail #1 reason");
     report = lox_run_checked_parser_demo(in, sizeof(in), out_fail, sizeof(out_fail), scratch_ok, sizeof(scratch_ok), &bb);
     failed |= expect(strcmp(report.reason, "BOUNDS") == 0, "microres fail #2 reason");
     report = lox_run_checked_parser_demo(in, sizeof(in), out_fail, sizeof(out_fail), scratch_ok, sizeof(scratch_ok), &bb);
     failed |= expect(strcmp(report.reason, "BOUNDS") == 0, "microres fail #3 reason");
+    before_count = bb.count;
     report = lox_run_checked_parser_demo(in, sizeof(in), out_fail, sizeof(out_fail), scratch_ok, sizeof(scratch_ok), &bb);
     failed |= expect(strcmp(report.reason, "BREAKER_OPEN") == 0, "microres breaker open reason");
     failed |= expect(lox_adapter_recovery_state_get() != 0, "microres recovery state non-closed when breaker open");
+    failed |= expect(bb.count >= 3u, "breaker-open flow has entered/error/completed");
+    failed |= expect(bb.events[0].kind == LOX_EVENT_BLOCK_ENTERED, "breaker-open first event entered");
+    failed |= expect(bb.events[1].kind == LOX_EVENT_BLOCK_ERROR, "breaker-open incident event is block error");
+    failed |= expect(strcmp(bb.events[1].reason, "BREAKER_OPEN") == 0, "breaker-open event reason");
+    failed |= expect(bb.events[bb.count - 1u].kind == LOX_EVENT_BLOCK_COMPLETED, "breaker-open last event completed");
+    failed |= expect(before_count == bb.count, "breaker-open path does not execute guarded write path");
+    failed |= expect(out_fail[15] == 0x22u, "breaker-open keeps output unchanged");
+    for (size_t i = 0u; i < bb.count; i++) {
+        if (bb.events[i].kind == LOX_EVENT_BLOCK_WRITE_OUT_OF_BOUNDS) {
+            saw_oob = 1;
+            break;
+        }
+    }
+    failed |= expect(saw_oob == 0, "breaker-open flow records no OOB incident");
+
+    for (size_t i = 0u; i < 300u; i++) {
+        (void)lox_adapter_now_ms();
+    }
+    report = lox_run_checked_parser_demo(in, sizeof(in), out_ok, sizeof(out_ok), scratch_ok, sizeof(scratch_ok), &bb);
+    failed |= expect(report.result == LOX_RESULT_OK, "microres recovery allows success after open timeout");
+    failed |= expect(lox_adapter_recovery_state_get() == 0, "microres state closes after success");
 #endif
 
     fuzz_state = 0xC0FFEEu;

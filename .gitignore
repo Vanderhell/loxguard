@@ -9,6 +9,7 @@ build_massert/
 build_panicdump/
 build_mres/
 build_mres_mtimer_mwdt/
+build_all_companions/
 *.obj
 *.lib
 *.exp
