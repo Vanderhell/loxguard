@@ -7,6 +7,8 @@ set(CMAKE_C_EXTENSIONS OFF)
 option(LOXGUARD_USE_NVLOG "Enable nvlog host/RAM persistence adapter" OFF)
 option(LOXGUARD_USE_MICROTIMER "Enable microtimer companion timing adapter path" OFF)
 option(LOXGUARD_USE_MICROWDT "Enable microwdt companion watchdog/liveness adapter path" OFF)
+option(LOXGUARD_USE_MICROASSERT "Enable microassert companion adapter path when available" OFF)
+option(LOXGUARD_USE_PANICDUMP "Enable panicdump companion adapter path when available" OFF)
 
 add_library(loxguard STATIC
     src/loxguard.c
@@ -59,6 +61,24 @@ if(LOXGUARD_USE_MICROWDT)
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROWDT=1 LOXGUARD_USE_MICROWDT=1)
     else()
         message(WARNING "LOXGUARD_USE_MICROWDT=ON but microwdt companion library not fully available; building without microwdt backend.")
+    endif()
+endif()
+
+if(LOXGUARD_USE_MICROASSERT)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/microassert/include/massert.h")
+        target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microassert/include")
+        target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROASSERT=1 LOXGUARD_USE_MICROASSERT=1)
+    else()
+        message(WARNING "LOXGUARD_USE_MICROASSERT=ON but microassert companion library is not available in ecosystem/ (or third_party fallback).")
+    endif()
+endif()
+
+if(LOXGUARD_USE_PANICDUMP)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/panicdump/include/panicdump.h")
+        target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/panicdump/include")
+        target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_PANICDUMP=1 LOXGUARD_USE_PANICDUMP=1)
+    else()
+        message(WARNING "LOXGUARD_USE_PANICDUMP=ON but panicdump companion library is not available in ecosystem/ (or third_party fallback).")
     endif()
 endif()
 

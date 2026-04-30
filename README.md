@@ -21,6 +21,7 @@ Verified:
 - CSV/report import/export
 - Optional nvlog host persistence
 - Optional microtimer/microwdt integration paths
+- Host panic/fault evidence paths (`BLOCK_PANIC`, `BLOCK_FAULT`)
 - Default, nvlog-enabled, and no-ecosystem builds
 
 Not verified yet:
@@ -29,6 +30,8 @@ Not verified yet:
 - Production MPU backend
 - LLVM/compiler instrumentation
 - Production flash/EEPROM/FRAM persistence
+- Companion `microassert` runtime integration (module not present in current workspace)
+- Companion `panicdump` runtime integration (module not present in current workspace)
 
 ## Quick Example
 

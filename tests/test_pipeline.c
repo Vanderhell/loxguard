@@ -209,6 +209,22 @@ int test_pipeline_suite(void) {
     failed |= expect(lox_adapter_watchdog_state_get() != 0, "watchdog state non-OK on timeout mapping");
 
     recovery_calls = 0;
+    report = lox_run_guard_panic_demo(&bb);
+    incident_idx = bb.count - 2u;
+    failed |= expect(strcmp(report.reason, "PANIC") == 0, "panic demo reason");
+    failed |= expect(report.result == LOX_RESULT_ERROR, "panic demo result");
+    failed |= expect(report.action == LOX_ACTION_DROP_INPUT, "panic demo action");
+    failed |= expect(bb.events[incident_idx].kind == LOX_EVENT_BLOCK_PANIC, "panic demo incident kind");
+
+    recovery_calls = 0;
+    report = lox_run_guard_fault_demo(&bb);
+    incident_idx = bb.count - 2u;
+    failed |= expect(strcmp(report.reason, "FAULT") == 0, "fault demo reason");
+    failed |= expect(report.result == LOX_RESULT_ERROR, "fault demo result");
+    failed |= expect(report.action == LOX_ACTION_DROP_INPUT, "fault demo action");
+    failed |= expect(bb.events[incident_idx].kind == LOX_EVENT_BLOCK_FAULT, "fault demo incident kind");
+
+    recovery_calls = 0;
     report = lox_run_rtos_timeout_demo(&bb, "rtos_task_demo", 77u);
     incident_idx = bb.count - 2u;
     failed |= expect(strcmp(report.reason, "RTOS_UNSUPPORTED") == 0, "rtos unsupported reason on host");

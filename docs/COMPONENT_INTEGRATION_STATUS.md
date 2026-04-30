@@ -18,6 +18,8 @@ Legacy folder-name fallback supported: `third_party/`
 | microbus | YES | `ecosystem/microbus` | `include/mbus.h` | Not linked | POSTPONE | event publication bus |
 | microres | YES | `ecosystem/microres` | `include/mres.h` | Not linked | POSTPONE | advanced recovery/retry policy engine |
 | microsh | YES | `ecosystem/microsh` | `include/msh.h` | Not linked | POSTPONE | debug/inspection command surface |
+| microassert | NO | N/A | expected `include/massert.h` | Not linked | NOT AVAILABLE / PLANNED | controlled assert/panic adapter path |
+| panicdump | NO | N/A | expected `include/panicdump.h` | Not linked | NOT AVAILABLE / PLANNED | fault dump adapter path (host-safe mapping only planned) |
 | loxdb | YES | `ecosystem/loxdb` | `include/lox.h` | Not linked | POSTPONE | optional future event history backend |
 
 ## Notes
@@ -50,3 +52,11 @@ Legacy folder-name fallback supported: `third_party/`
   - `BLOCK_TIMEOUT` -> watchdog non-OK state mapping (late/starved semantics)
   - `BLOCK_ERROR` / bounds / arena / memory-fault -> watchdog non-OK state mapping
   - `WATCHDOG_LATE` / `WATCHDOG_STARVED` are represented in this wave through adapter watchdog state (`lox_adapter_watchdog_state_get`) and are not standalone `lox_event_t` kinds yet.
+
+- `microassert`:
+  - optional build switch exists: `LOXGUARD_USE_MICROASSERT`
+  - current workspace does not contain the companion module, so runtime integration is not verified
+
+- `panicdump`:
+  - optional build switch exists: `LOXGUARD_USE_PANICDUMP`
+  - current workspace does not contain the companion module, so runtime integration is not verified

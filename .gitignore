@@ -5,6 +5,8 @@ build_nvlog/
 build_mtimer/
 build_mwdt/
 build_mtimer_mwdt/
+build_massert/
+build_panicdump/
 *.obj
 *.lib
 *.exp

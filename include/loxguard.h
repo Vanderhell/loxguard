@@ -30,7 +30,9 @@ typedef enum {
     LOX_EVENT_BLOCK_ENTERED = 6,
     LOX_EVENT_BLOCK_OK = 7,
     LOX_EVENT_BLOCK_COMPLETED = 8,
-    LOX_EVENT_BLOCK_ERROR = 9
+    LOX_EVENT_BLOCK_ERROR = 9,
+    LOX_EVENT_BLOCK_PANIC = 10,
+    LOX_EVENT_BLOCK_FAULT = 11
 } lox_event_kind_t;
 
 typedef enum {
@@ -141,6 +143,8 @@ lox_report_t lox_run_checked_parser_demo(
 );
 
 lox_report_t lox_run_checked_parser_timeout_demo(lox_blackbox_t *blackbox);
+lox_report_t lox_run_guard_panic_demo(lox_blackbox_t *blackbox);
+lox_report_t lox_run_guard_fault_demo(lox_blackbox_t *blackbox);
 lox_report_t lox_run_rtos_timeout_demo(lox_blackbox_t *blackbox, const char *task_name, uint32_t tick_budget);
 lox_report_t lox_run_mpu_fault_demo(lox_blackbox_t *blackbox, const char *block_name, uint32_t fault_addr, uint32_t cfsr, uint32_t hfsr);
 

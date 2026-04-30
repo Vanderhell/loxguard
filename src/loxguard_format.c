@@ -9,7 +9,7 @@ int lox_report_parse_kv_ex(const char *line, lox_report_snapshot_t *out_snapshot
 int lox_event_parse_csv_line_ex(const char *line, lox_event_snapshot_t *out_snapshot);
 
 static int lox_event_kind_is_valid(int kind) {
-    return kind >= (int)LOX_EVENT_NONE && kind <= (int)LOX_EVENT_BLOCK_ERROR;
+    return kind >= (int)LOX_EVENT_NONE && kind <= (int)LOX_EVENT_BLOCK_FAULT;
 }
 
 static int lox_action_is_valid(unsigned int action) {

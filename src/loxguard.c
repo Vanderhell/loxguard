@@ -73,6 +73,8 @@ static int lox_emit_event_ex(
     } else if (kind == LOX_EVENT_BLOCK_WRITE_OUT_OF_BOUNDS ||
                kind == LOX_EVENT_BLOCK_ARENA_OVERFLOW ||
                kind == LOX_EVENT_BLOCK_MEMORY_FAULT ||
+               kind == LOX_EVENT_BLOCK_PANIC ||
+               kind == LOX_EVENT_BLOCK_FAULT ||
                kind == LOX_EVENT_BLOCK_ERROR) {
         g_failure_streak++;
         lox_adapter_health_set(3);
@@ -302,6 +304,8 @@ lox_action_t lox_policy_decide(const lox_event_t *event) {
         event->kind == LOX_EVENT_BLOCK_ARENA_OVERFLOW ||
         event->kind == LOX_EVENT_BLOCK_TIMEOUT ||
         event->kind == LOX_EVENT_BLOCK_MEMORY_FAULT ||
+        event->kind == LOX_EVENT_BLOCK_PANIC ||
+        event->kind == LOX_EVENT_BLOCK_FAULT ||
         event->kind == LOX_EVENT_BLOCK_UNSUPPORTED ||
         event->kind == LOX_EVENT_BLOCK_ERROR) {
         return LOX_ACTION_DROP_INPUT;
@@ -476,6 +480,41 @@ lox_report_t lox_run_checked_parser_timeout_demo(lox_blackbox_t *blackbox) {
     (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_COMPLETED, "COMPLETED", ctx.duration_ticks, 0u, 0u, 0);
 
     return lox_finalize_report(&ctx, LOXGUARD_ERR_TIMEOUT);
+}
+
+lox_report_t lox_run_guard_panic_demo(lox_blackbox_t *blackbox) {
+    lox_guard_ctx_t ctx;
+    uint32_t end_ticks;
+
+    lox_blackbox_init(blackbox);
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.block_name = "panic_guard_block";
+    ctx.blackbox = blackbox;
+    ctx.start_ticks = lox_adapter_now_ms();
+    (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_ENTERED, "ENTERED", 0u, 0u, 0u, 0);
+    lox_adapter_panic_hook("PANIC");
+    (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_PANIC, "PANIC", 0u, 0u, 1u, 1);
+    end_ticks = lox_adapter_now_ms();
+    ctx.duration_ticks = end_ticks - ctx.start_ticks;
+    (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_COMPLETED, "COMPLETED", ctx.duration_ticks, 0u, 0u, 0);
+    return lox_finalize_report(&ctx, LOXGUARD_ERR_UNSUPPORTED);
+}
+
+lox_report_t lox_run_guard_fault_demo(lox_blackbox_t *blackbox) {
+    lox_guard_ctx_t ctx;
+    uint32_t end_ticks;
+
+    lox_blackbox_init(blackbox);
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.block_name = "fault_guard_block";
+    ctx.blackbox = blackbox;
+    ctx.start_ticks = lox_adapter_now_ms();
+    (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_ENTERED, "ENTERED", 0u, 0u, 0u, 0);
+    (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_FAULT, "FAULT", 0u, 0u, 2u, 1);
+    end_ticks = lox_adapter_now_ms();
+    ctx.duration_ticks = end_ticks - ctx.start_ticks;
+    (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_COMPLETED, "COMPLETED", ctx.duration_ticks, 0u, 0u, 0);
+    return lox_finalize_report(&ctx, LOXGUARD_ERR_UNSUPPORTED);
 }
 
 lox_report_t lox_run_rtos_timeout_demo(lox_blackbox_t *blackbox, const char *task_name, uint32_t tick_budget) {

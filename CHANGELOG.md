@@ -17,6 +17,10 @@ All notable changes to this project are documented in this file.
 ### Changed
 - Guard event emission path now forwards events to watchdog observation mapping.
 - Evidence/docs updated for microtimer/microwdt integration matrix and verification configs.
+- Added host-safe controlled panic/fault evidence flows (`BLOCK_PANIC`, `BLOCK_FAULT`) with pipeline/policy/blackbox/report coverage.
+- Added optional companion switches for future integration:
+  - `LOXGUARD_USE_MICROASSERT`
+  - `LOXGUARD_USE_PANICDUMP`
 
 ## v0.1.0-alpha (2026-04-30)
 
