@@ -20,6 +20,7 @@ Verified:
 - Policy + blackbox/report pipeline
 - CSV/report import/export
 - Optional nvlog host persistence
+- Optional microtimer/microwdt integration paths
 - Default, nvlog-enabled, and no-ecosystem builds
 
 Not verified yet:
@@ -70,6 +71,30 @@ cmake --build build_nvlog --config Debug
 ctest --test-dir build_nvlog -C Debug --output-on-failure
 ```
 
+microtimer-enabled:
+
+```powershell
+cmake -S . -B build_mtimer -DLOXGUARD_USE_MICROTIMER=ON
+cmake --build build_mtimer --config Debug
+ctest --test-dir build_mtimer -C Debug --output-on-failure
+```
+
+microwdt-enabled:
+
+```powershell
+cmake -S . -B build_mwdt -DLOXGUARD_USE_MICROWDT=ON
+cmake --build build_mwdt --config Debug
+ctest --test-dir build_mwdt -C Debug --output-on-failure
+```
+
+microtimer+microwdt:
+
+```powershell
+cmake -S . -B build_mtimer_mwdt -DLOXGUARD_USE_MICROTIMER=ON -DLOXGUARD_USE_MICROWDT=ON
+cmake --build build_mtimer_mwdt --config Debug
+ctest --test-dir build_mtimer_mwdt -C Debug --output-on-failure
+```
+
 no-ecosystem default:
 
 ```powershell
@@ -85,6 +110,7 @@ GitHub Actions workflow: `.github/workflows/ci.yml`
 - `default`: configure/build/test default path
 - `nvlog`: configure/build/test with `LOXGUARD_USE_NVLOG=ON`
 - `noecosystem`: verifies default build/test with `ecosystem/` absent
+- `release`: on `v*` tags, re-verifies default/nvlog/no-ecosystem before publishing release assets
 
 ## Automated Releases
 
@@ -104,7 +130,8 @@ Workflow: `.github/workflows/release.yml`
 
 - Canonical companion path: `ecosystem/`
 - Companion modules are optional ecosystem integrations.
-- Current active integration: `safemath`, `microlog`, partial `microhealth`, optional host `nvlog`.
+- Current active integration: `safemath`, `microlog`, partial `microhealth`, optional host `nvlog`, optional `microtimer`, optional `microwdt`.
+- Watchdog late/starved semantics in this wave are represented through adapter watchdog state, not standalone `lox_event_t` kinds.
 
 ## Links
 

@@ -84,6 +84,7 @@ int test_pipeline_suite(void) {
     uint32_t fuzz_state;
 
     lox_adapter_set_time_now(fake_now_ms);
+    lox_adapter_watchdog_reset();
     lox_set_recovery_callback(recovery_probe, NULL);
     memset(&persist_probe, 0, sizeof(persist_probe));
     persist_probe.kind = LOX_EVENT_BLOCK_OK;
@@ -156,6 +157,7 @@ int test_pipeline_suite(void) {
     failed |= expect(bb.events[1].kind == LOX_EVENT_BLOCK_OK, "success ok event");
     failed |= expect(bb.events[2].kind == LOX_EVENT_BLOCK_COMPLETED, "success completed event");
     failed |= expect(lox_adapter_health_get() == 0, "health state OK after successful block");
+    failed |= expect(lox_adapter_watchdog_state_get() == 0, "watchdog state OK after successful block");
 
     recovery_calls = 0;
     memset(out_fail, 0x11, sizeof(out_fail));
@@ -176,6 +178,7 @@ int test_pipeline_suite(void) {
     failed |= expect(recovery_calls == 1, "recovery callback called for bounds");
     failed |= expect(last_action == LOX_ACTION_DROP_INPUT, "recovery action on bounds");
     failed |= expect(last_kind == LOX_EVENT_BLOCK_WRITE_OUT_OF_BOUNDS, "recovery kind on bounds");
+    failed |= expect(lox_adapter_watchdog_state_get() != 0, "watchdog state non-OK on bounds failure mapping");
 
     (void)lox_event_format_csv(&bb.events[incident_idx], line, sizeof(line));
     failed |= expect(strstr(line, "reason=BOUNDS") != NULL, "csv export contains BOUNDS");
@@ -203,6 +206,7 @@ int test_pipeline_suite(void) {
     failed |= expect(report.result == LOX_RESULT_TIMEOUT, "timeout result");
     failed |= expect(bb.events[incident_idx].kind == LOX_EVENT_BLOCK_TIMEOUT, "timeout incident kind");
     failed |= expect(lox_adapter_health_get() != 0, "health state not-OK after timeout");
+    failed |= expect(lox_adapter_watchdog_state_get() != 0, "watchdog state non-OK on timeout mapping");
 
     recovery_calls = 0;
     report = lox_run_rtos_timeout_demo(&bb, "rtos_task_demo", 77u);

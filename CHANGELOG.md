@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### Added
+- Optional `microtimer` integration switch:
+  - `LOXGUARD_USE_MICROTIMER`
+- Optional `microwdt` integration switch:
+  - `LOXGUARD_USE_MICROWDT`
+- Adapter-level watchdog observation hooks:
+  - `lox_adapter_watchdog_observe_event(...)`
+  - `lox_adapter_watchdog_state_get()`
+  - `lox_adapter_watchdog_reset()`
+
+### Changed
+- Guard event emission path now forwards events to watchdog observation mapping.
+- Evidence/docs updated for microtimer/microwdt integration matrix and verification configs.
+
 ## v0.1.0-alpha (2026-04-30)
 
 ### Added

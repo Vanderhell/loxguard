@@ -5,6 +5,8 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 option(LOXGUARD_USE_NVLOG "Enable nvlog host/RAM persistence adapter" OFF)
+option(LOXGUARD_USE_MICROTIMER "Enable microtimer companion timing adapter path" OFF)
+option(LOXGUARD_USE_MICROWDT "Enable microwdt companion watchdog/liveness adapter path" OFF)
 
 add_library(loxguard STATIC
     src/loxguard.c
@@ -38,6 +40,26 @@ if(EXISTS "${LOX_ECOSYSTEM_DIR}/microhealth/include/mhealth.h" AND EXISTS "${LOX
     target_sources(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microhealth/src/mhealth.c")
     target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microhealth/include")
     target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROHEALTH=1)
+endif()
+
+if(LOXGUARD_USE_MICROTIMER)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/microtimer/include/mtimer.h" AND EXISTS "${LOX_ECOSYSTEM_DIR}/microtimer/src/mtimer.c")
+        target_sources(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microtimer/src/mtimer.c")
+        target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microtimer/include")
+        target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROTIMER=1 LOXGUARD_USE_MICROTIMER=1)
+    else()
+        message(WARNING "LOXGUARD_USE_MICROTIMER=ON but microtimer companion library not fully available; building without microtimer backend.")
+    endif()
+endif()
+
+if(LOXGUARD_USE_MICROWDT)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/microwdt/include/mwdt.h" AND EXISTS "${LOX_ECOSYSTEM_DIR}/microwdt/src/mwdt.c")
+        target_sources(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microwdt/src/mwdt.c")
+        target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microwdt/include")
+        target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROWDT=1 LOXGUARD_USE_MICROWDT=1)
+    else()
+        message(WARNING "LOXGUARD_USE_MICROWDT=ON but microwdt companion library not fully available; building without microwdt backend.")
+    endif()
 endif()
 
 if(LOXGUARD_USE_NVLOG)

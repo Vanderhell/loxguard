@@ -7,6 +7,9 @@ Build configs:
 - `default`: `cmake -S . -B build` + `cmake --build build --config Debug` + `ctest --test-dir build -C Debug --output-on-failure`
 - `nvlog`: `cmake -S . -B build_nvlog -DLOXGUARD_USE_NVLOG=ON` + `cmake --build build_nvlog --config Debug` + `ctest --test-dir build_nvlog -C Debug --output-on-failure`
 - `noeco`: temporary verification with `ecosystem/` folder moved away: `cmake -S . -B build_noeco` + `cmake --build build_noeco --config Debug` + `ctest --test-dir build_noeco -C Debug --output-on-failure`
+- `microtimer`: `cmake -S . -B build_mtimer -DLOXGUARD_USE_MICROTIMER=ON` + build + test
+- `microwdt`: `cmake -S . -B build_mwdt -DLOXGUARD_USE_MICROWDT=ON` + build + test
+- `microtimer_microwdt`: `cmake -S . -B build_mtimer_mwdt -DLOXGUARD_USE_MICROTIMER=ON -DLOXGUARD_USE_MICROWDT=ON` + build + test
 
 Test mapping note:
 - `tests/test_pipeline.c` is a broad scenario suite (`test_pipeline_suite`) with labeled assertions (`expect(..., "label")`); claim mapping references these assertion labels.
@@ -29,6 +32,10 @@ Test mapping note:
 | safemath integration in checked arithmetic | Build-time integration in `CMakeLists.txt` (`LOXGUARD_HAVE_SAFEMATH`), runtime bounds tests in `test_span_suite`/`test_arena_suite` | default, nvlog | PARTIAL |
 | microlog integration in adapter logging | Build-time integration in `CMakeLists.txt` (`mlog.c`), adapter path exercised by pipeline flows | default, nvlog | PARTIAL |
 | microhealth partial integration | `test_pipeline_suite`: `health state OK after successful block`, `health state not-OK after ...` | default, nvlog | PARTIAL |
+| microtimer optional integration | build/test pass in `build_mtimer`; deterministic injected time invariants still pass in `test_pipeline_suite` | microtimer | PARTIAL |
+| microwdt optional integration | build/test pass in `build_mwdt`; `test_pipeline_suite` watchdog state mappings for success/failure/timeout | microwdt | PARTIAL |
+| combined microtimer+microwdt integration | build/test pass in `build_mtimer_mwdt` | microtimer_microwdt | PARTIAL |
+| watchdog late/starved semantics representation | `test_pipeline_suite` watchdog non-OK mapping checks; semantics represented via adapter state | default, microtimer, microwdt, microtimer_microwdt | PARTIAL |
 | nvlog host persistence integration | `test_pipeline_suite`: `nvlog init ram`, `persist success on nvlog`, `persist failure on injected nvlog fault`, `report persisted true with nvlog initialized` | nvlog | VERIFIED |
 | nvlog failure-injection/init guard behavior | `test_pipeline_suite`: undersized init rejection, null-path rejection, post-shutdown unsupported persist | nvlog | VERIFIED |
 | Blackbox long-run rollover stability | `test_pipeline_suite`: `blackbox long stress ...` checks after `2020` inserts | default, nvlog | VERIFIED |

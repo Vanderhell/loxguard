@@ -52,6 +52,7 @@ static int lox_emit_event_ex(
 
     (void)lox_adapter_log_event(&ev);
     persist_rc = lox_adapter_persist_event(&ev);
+    lox_adapter_watchdog_observe_event(&ev);
     persisted = (persist_rc == LOXGUARD_OK) ? 1 : 0;
 
     if (track_as_last) {
