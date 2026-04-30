@@ -16,7 +16,7 @@ Legacy folder-name fallback supported: `third_party/`
 | microtest | YES | `ecosystem/microtest` | `include/mtest.h` | Not linked | POSTPONE | test framework migration candidate |
 | safemath | YES | `ecosystem/safemath` | `safemath.h` | Header-only included | REUSE | overflow-safe size/index arithmetic in span/arena checks |
 | microbus | YES | `ecosystem/microbus` | `include/mbus.h` | Not linked | POSTPONE | event publication bus |
-| microres | YES | `ecosystem/microres` | `include/mres.h` | Not linked | POSTPONE | advanced recovery/retry policy engine |
+| microres | YES | `ecosystem/microres` | `include/mres.h` | Optionally linked when `LOXGUARD_USE_MICRORES=ON` | REUSE/ADAPT (partial) | optional recovery/circuit-breaker assist path for repeated guard failures |
 | microsh | YES | `ecosystem/microsh` | `include/msh.h` | Not linked | POSTPONE | debug/inspection command surface |
 | microassert | NO | N/A | expected `include/massert.h` | Not linked | NOT AVAILABLE / PLANNED | controlled assert/panic adapter path |
 | panicdump | NO | N/A | expected `include/panicdump.h` | Not linked | NOT AVAILABLE / PLANNED | fault dump adapter path (host-safe mapping only planned) |
@@ -33,11 +33,12 @@ Legacy folder-name fallback supported: `third_party/`
 - `nvlog` is integrated for host RAM/file persistence when `LOXGUARD_USE_NVLOG=ON`.
 - `microtimer` is integrated as an optional adapter-managed timing manager path when `LOXGUARD_USE_MICROTIMER=ON`.
 - `microwdt` is integrated as an optional adapter-managed watchdog/liveness mapping path when `LOXGUARD_USE_MICROWDT=ON`.
-- Not integrated yet (intentionally): `microtest`, `microbus`, `microres`, `microsh`, `loxdb`.
+- `microres` is integrated as an optional adapter-managed recovery/circuit-breaker assist path when `LOXGUARD_USE_MICRORES=ON`.
+- Not integrated yet (intentionally): `microtest`, `microbus`, `microsh`, `loxdb`.
 - These postponed ecosystem integrations are **NOT VERIFIED** in runtime behavior for loxguard yet.
 - Embedded flash/EEPROM/FRAM persistence behavior through nvlog is **NOT VERIFIED** in loxguard.
 
-## microtimer/microwdt API notes
+## microtimer/microwdt/microres API notes
 
 - `microtimer` APIs used:
   - `mtimer_init`, `mtimer_create`, `mtimer_start`, `mtimer_tick`
@@ -52,6 +53,14 @@ Legacy folder-name fallback supported: `third_party/`
   - `BLOCK_TIMEOUT` -> watchdog non-OK state mapping (late/starved semantics)
   - `BLOCK_ERROR` / bounds / arena / memory-fault -> watchdog non-OK state mapping
   - `WATCHDOG_LATE` / `WATCHDOG_STARVED` are represented in this wave through adapter watchdog state (`lox_adapter_watchdog_state_get`) and are not standalone `lox_event_t` kinds yet.
+
+- `microres` APIs used:
+  - `mres_breaker_init`, `mres_breaker_report_success`, `mres_breaker_report_failure`
+  - `mres_breaker_state`, `mres_breaker_remaining_ms`, `mres_breaker_reset`
+- Mapping note:
+  - repeated guard failures are reported into `microres` breaker state
+  - open breaker state blocks guarded execution attempt and emits `BLOCK_ERROR` with `reason=BREAKER_OPEN`
+  - successful runs report success to breaker and can move state toward closed/healthy
 
 - `microassert`:
   - optional build switch exists: `LOXGUARD_USE_MICROASSERT`

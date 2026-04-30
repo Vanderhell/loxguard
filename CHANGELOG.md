@@ -9,13 +9,21 @@ All notable changes to this project are documented in this file.
   - `LOXGUARD_USE_MICROTIMER`
 - Optional `microwdt` integration switch:
   - `LOXGUARD_USE_MICROWDT`
+- Optional `microres` integration switch:
+  - `LOXGUARD_USE_MICRORES`
 - Adapter-level watchdog observation hooks:
   - `lox_adapter_watchdog_observe_event(...)`
   - `lox_adapter_watchdog_state_get()`
   - `lox_adapter_watchdog_reset()`
+- Adapter-level recovery/circuit-breaker hooks:
+  - `lox_adapter_recovery_allow_attempt()`
+  - `lox_adapter_recovery_report_result(...)`
+  - `lox_adapter_recovery_state_get()`
+  - `lox_adapter_recovery_reset()`
 
 ### Changed
 - Guard event emission path now forwards events to watchdog observation mapping.
+- Guard execution path now supports optional `microres` breaker-assisted blocking (`BREAKER_OPEN`) on repeated failures.
 - Evidence/docs updated for microtimer/microwdt integration matrix and verification configs.
 - Added host-safe controlled panic/fault evidence flows (`BLOCK_PANIC`, `BLOCK_FAULT`) with pipeline/policy/blackbox/report coverage.
 - Added optional companion switches for future integration:

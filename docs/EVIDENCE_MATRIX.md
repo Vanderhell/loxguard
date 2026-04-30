@@ -10,6 +10,8 @@ Build configs:
 - `microtimer`: `cmake -S . -B build_mtimer -DLOXGUARD_USE_MICROTIMER=ON` + build + test
 - `microwdt`: `cmake -S . -B build_mwdt -DLOXGUARD_USE_MICROWDT=ON` + build + test
 - `microtimer_microwdt`: `cmake -S . -B build_mtimer_mwdt -DLOXGUARD_USE_MICROTIMER=ON -DLOXGUARD_USE_MICROWDT=ON` + build + test
+- `microres`: `cmake -S . -B build_mres -DLOXGUARD_USE_MICRORES=ON` + build + test
+- `microres_microtimer_microwdt`: `cmake -S . -B build_mres_mtimer_mwdt -DLOXGUARD_USE_MICRORES=ON -DLOXGUARD_USE_MICROTIMER=ON -DLOXGUARD_USE_MICROWDT=ON` + build + test
 
 Test mapping note:
 - `tests/test_pipeline.c` is a broad scenario suite (`test_pipeline_suite`) with labeled assertions (`expect(..., "label")`); claim mapping references these assertion labels.
@@ -36,6 +38,8 @@ Test mapping note:
 | microtimer optional integration | build/test pass in `build_mtimer`; deterministic injected time invariants still pass in `test_pipeline_suite` | microtimer | PARTIAL |
 | microwdt optional integration | build/test pass in `build_mwdt`; `test_pipeline_suite` watchdog state mappings for success/failure/timeout | microwdt | PARTIAL |
 | combined microtimer+microwdt integration | build/test pass in `build_mtimer_mwdt` | microtimer_microwdt | PARTIAL |
+| microres optional recovery/circuit-breaker integration | `test_pipeline_suite`: repeated failure increments breaker; breaker-open blocks later attempt (`BREAKER_OPEN`) | microres | PARTIAL |
+| combined microres+microtimer+microwdt integration | build/test pass in `build_mres_mtimer_mwdt` | microres_microtimer_microwdt | PARTIAL |
 | watchdog late/starved semantics representation | `test_pipeline_suite` watchdog non-OK mapping checks; semantics represented via adapter state | default, microtimer, microwdt, microtimer_microwdt | PARTIAL |
 | microassert companion integration | optional switch + companion-header detection in CMake; module unavailable in workspace | default | NOT VERIFIED |
 | panicdump companion integration | optional switch + companion-header detection in CMake; module unavailable in workspace | default | NOT VERIFIED |

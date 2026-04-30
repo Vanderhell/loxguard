@@ -451,6 +451,21 @@ lox_report_t lox_run_checked_parser_demo(
     ctx.last_event_persisted = 0;
     memset(&ctx.last_event, 0, sizeof(ctx.last_event));
     (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_ENTERED, "ENTERED", 0u, 0u, 0u, 0);
+    if (!lox_adapter_recovery_allow_attempt()) {
+        (void)lox_emit_event_ex(
+            &ctx,
+            LOX_EVENT_BLOCK_ERROR,
+            "BREAKER_OPEN",
+            0u,
+            0u,
+            (uint32_t)lox_adapter_recovery_state_get(),
+            1
+        );
+        end_ticks = lox_adapter_now_ms();
+        ctx.duration_ticks = end_ticks - ctx.start_ticks;
+        (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_COMPLETED, "COMPLETED", ctx.duration_ticks, 0u, 0u, 0);
+        return lox_finalize_report(&ctx, LOXGUARD_ERR_UNSUPPORTED);
+    }
 
     rc = packet_parser_block(&ctx);
     if (rc == LOXGUARD_OK) {
@@ -458,6 +473,7 @@ lox_report_t lox_run_checked_parser_demo(
     } else if (ctx.last_event.kind == LOX_EVENT_NONE) {
         (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_ERROR, "ERROR", 0u, 0u, 0u, 1);
     }
+    lox_adapter_recovery_report_result(rc == LOXGUARD_OK);
     end_ticks = lox_adapter_now_ms();
     ctx.duration_ticks = end_ticks - ctx.start_ticks;
     (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_COMPLETED, "COMPLETED", ctx.duration_ticks, 0u, 0u, 0);

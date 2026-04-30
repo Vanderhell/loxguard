@@ -85,6 +85,7 @@ int test_pipeline_suite(void) {
 
     lox_adapter_set_time_now(fake_now_ms);
     lox_adapter_watchdog_reset();
+    lox_adapter_recovery_reset();
     lox_set_recovery_callback(recovery_probe, NULL);
     memset(&persist_probe, 0, sizeof(persist_probe));
     persist_probe.kind = LOX_EVENT_BLOCK_OK;
@@ -299,6 +300,19 @@ int test_pipeline_suite(void) {
     failed |= expect(imported_bb.count == 2u, "csv import mixed count");
     failed |= expect(strcmp(imported_bb.events[0].block_name, "ok_a") == 0, "csv import mixed first block");
     failed |= expect(strcmp(imported_bb.events[1].block_name, "ok_b") == 0, "csv import mixed second block");
+
+#if defined(LOXGUARD_USE_MICRORES) && defined(LOXGUARD_HAVE_MICRORES)
+    lox_adapter_recovery_reset();
+    report = lox_run_checked_parser_demo(in, sizeof(in), out_fail, sizeof(out_fail), scratch_ok, sizeof(scratch_ok), &bb);
+    failed |= expect(strcmp(report.reason, "BOUNDS") == 0, "microres fail #1 reason");
+    report = lox_run_checked_parser_demo(in, sizeof(in), out_fail, sizeof(out_fail), scratch_ok, sizeof(scratch_ok), &bb);
+    failed |= expect(strcmp(report.reason, "BOUNDS") == 0, "microres fail #2 reason");
+    report = lox_run_checked_parser_demo(in, sizeof(in), out_fail, sizeof(out_fail), scratch_ok, sizeof(scratch_ok), &bb);
+    failed |= expect(strcmp(report.reason, "BOUNDS") == 0, "microres fail #3 reason");
+    report = lox_run_checked_parser_demo(in, sizeof(in), out_fail, sizeof(out_fail), scratch_ok, sizeof(scratch_ok), &bb);
+    failed |= expect(strcmp(report.reason, "BREAKER_OPEN") == 0, "microres breaker open reason");
+    failed |= expect(lox_adapter_recovery_state_get() != 0, "microres recovery state non-closed when breaker open");
+#endif
 
     fuzz_state = 0xC0FFEEu;
     for (size_t i = 0u; i < 64u; i++) {

@@ -12,10 +12,14 @@
 #if defined(LOXGUARD_HAVE_MICROWDT) && defined(LOXGUARD_USE_MICROWDT)
 #include "mwdt.h"
 #endif
+#if defined(LOXGUARD_HAVE_MICRORES) && defined(LOXGUARD_USE_MICRORES)
+#include "mres.h"
+#endif
 
 static lox_time_now_fn_t g_time_now_fn = NULL;
 static int g_health_code = 0;
 static int g_watchdog_state = 0; /* 0=OK, 1=LATE, 2=STARVED */
+static int g_recovery_state = 0; /* 0=CLOSED, 1=OPEN, 2=HALF_OPEN */
 
 #ifdef LOXGUARD_HAVE_MICROHEALTH
 static mhealth_t g_mhealth;
@@ -127,6 +131,46 @@ static void lox_mwdt_ensure_init(void) {
 }
 #endif
 
+#if defined(LOXGUARD_HAVE_MICRORES) && defined(LOXGUARD_USE_MICRORES)
+static mres_breaker_t g_mres_breaker;
+static int g_mres_ready = 0;
+static const mres_breaker_policy_t g_mres_policy = {
+    3u,    /* failure_threshold */
+    1000u, /* recovery_timeout_ms */
+    1u     /* half_open_max_calls */
+};
+
+static uint32_t lox_mres_clock(void) {
+    return lox_adapter_now_ms();
+}
+
+static void lox_mres_ensure_init(void) {
+    if (g_mres_ready) {
+        return;
+    }
+    if (mres_breaker_init(&g_mres_breaker, &g_mres_policy) != MRES_OK) {
+        return;
+    }
+    g_mres_ready = 1;
+}
+
+static void lox_sync_recovery_state(void) {
+    mres_breaker_state_t st;
+    if (!g_mres_ready) {
+        g_recovery_state = 0;
+        return;
+    }
+    st = mres_breaker_state(&g_mres_breaker);
+    if (st == MRES_BREAKER_OPEN) {
+        g_recovery_state = 1;
+    } else if (st == MRES_BREAKER_HALF_OPEN) {
+        g_recovery_state = 2;
+    } else {
+        g_recovery_state = 0;
+    }
+}
+#endif
+
 int lox_adapter_log_event(const lox_event_t *event) {
 #ifdef LOXGUARD_HAVE_MICROLOG
     if (event != NULL) {
@@ -226,6 +270,51 @@ void lox_adapter_watchdog_reset(void) {
 #if defined(LOXGUARD_HAVE_MICROWDT) && defined(LOXGUARD_USE_MICROWDT)
     if (g_mwdt_ready && g_mwdt_idx >= 0) {
         (void)mwdt_kick(&g_mwdt, (uint8_t)g_mwdt_idx);
+    }
+#endif
+}
+
+int lox_adapter_recovery_allow_attempt(void) {
+#if defined(LOXGUARD_HAVE_MICRORES) && defined(LOXGUARD_USE_MICRORES)
+    lox_mres_ensure_init();
+    if (g_mres_ready) {
+        if (mres_breaker_state(&g_mres_breaker) == MRES_BREAKER_OPEN &&
+            mres_breaker_remaining_ms(&g_mres_breaker, lox_mres_clock) > 0u) {
+            lox_sync_recovery_state();
+            return 0;
+        }
+        lox_sync_recovery_state();
+    }
+#endif
+    return 1;
+}
+
+void lox_adapter_recovery_report_result(int success) {
+#if defined(LOXGUARD_HAVE_MICRORES) && defined(LOXGUARD_USE_MICRORES)
+    lox_mres_ensure_init();
+    if (g_mres_ready) {
+        if (success) {
+            (void)mres_breaker_report_success(&g_mres_breaker);
+        } else {
+            (void)mres_breaker_report_failure(&g_mres_breaker, lox_mres_clock);
+        }
+        lox_sync_recovery_state();
+    }
+#else
+    (void)success;
+#endif
+}
+
+int lox_adapter_recovery_state_get(void) {
+    return g_recovery_state;
+}
+
+void lox_adapter_recovery_reset(void) {
+    g_recovery_state = 0;
+#if defined(LOXGUARD_HAVE_MICRORES) && defined(LOXGUARD_USE_MICRORES)
+    lox_mres_ensure_init();
+    if (g_mres_ready) {
+        (void)mres_breaker_reset(&g_mres_breaker);
     }
 #endif
 }

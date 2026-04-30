@@ -21,6 +21,7 @@ Verified:
 - CSV/report import/export
 - Optional nvlog host persistence
 - Optional microtimer/microwdt integration paths
+- Optional microres recovery/circuit-breaker adapter path
 - Host panic/fault evidence paths (`BLOCK_PANIC`, `BLOCK_FAULT`)
 - Default, nvlog-enabled, and no-ecosystem builds
 
@@ -98,6 +99,14 @@ cmake --build build_mtimer_mwdt --config Debug
 ctest --test-dir build_mtimer_mwdt -C Debug --output-on-failure
 ```
 
+microres-enabled:
+
+```powershell
+cmake -S . -B build_mres -DLOXGUARD_USE_MICRORES=ON
+cmake --build build_mres --config Debug
+ctest --test-dir build_mres -C Debug --output-on-failure
+```
+
 no-ecosystem default:
 
 ```powershell
@@ -133,7 +142,7 @@ Workflow: `.github/workflows/release.yml`
 
 - Canonical companion path: `ecosystem/`
 - Companion modules are optional ecosystem integrations.
-- Current active integration: `safemath`, `microlog`, partial `microhealth`, optional host `nvlog`, optional `microtimer`, optional `microwdt`.
+- Current active integration: `safemath`, `microlog`, partial `microhealth`, optional host `nvlog`, optional `microtimer`, optional `microwdt`, optional `microres`.
 - Watchdog late/starved semantics in this wave are represented through adapter watchdog state, not standalone `lox_event_t` kinds.
 
 ## Links

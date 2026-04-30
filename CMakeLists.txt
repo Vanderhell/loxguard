@@ -9,6 +9,7 @@ option(LOXGUARD_USE_MICROTIMER "Enable microtimer companion timing adapter path"
 option(LOXGUARD_USE_MICROWDT "Enable microwdt companion watchdog/liveness adapter path" OFF)
 option(LOXGUARD_USE_MICROASSERT "Enable microassert companion adapter path when available" OFF)
 option(LOXGUARD_USE_PANICDUMP "Enable panicdump companion adapter path when available" OFF)
+option(LOXGUARD_USE_MICRORES "Enable microres companion recovery/circuit-breaker adapter path" OFF)
 
 add_library(loxguard STATIC
     src/loxguard.c
@@ -79,6 +80,16 @@ if(LOXGUARD_USE_PANICDUMP)
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_PANICDUMP=1 LOXGUARD_USE_PANICDUMP=1)
     else()
         message(WARNING "LOXGUARD_USE_PANICDUMP=ON but panicdump companion library is not available in ecosystem/ (or third_party fallback).")
+    endif()
+endif()
+
+if(LOXGUARD_USE_MICRORES)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/microres/include/mres.h" AND EXISTS "${LOX_ECOSYSTEM_DIR}/microres/src/mres.c")
+        target_sources(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microres/src/mres.c")
+        target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microres/include")
+        target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICRORES=1 LOXGUARD_USE_MICRORES=1)
+    else()
+        message(WARNING "LOXGUARD_USE_MICRORES=ON but microres companion library is not available; building without microres backend.")
     endif()
 endif()
 

@@ -7,6 +7,8 @@ build_mwdt/
 build_mtimer_mwdt/
 build_massert/
 build_panicdump/
+build_mres/
+build_mres_mtimer_mwdt/
 *.obj
 *.lib
 *.exp
