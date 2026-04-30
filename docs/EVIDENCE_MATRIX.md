@@ -16,17 +16,22 @@ Test mapping note:
 | Guard Block OK path is implemented | `test_pipeline_suite`: `success result is OK`, `success action NONE` | default, nvlog | VERIFIED |
 | Guard Block failure path is implemented | `test_pipeline_suite`: `reason is BOUNDS`, `result is BOUNDS`, `policy action is DROP_INPUT` | default, nvlog | VERIFIED |
 | Checked span OOB prevention | `test_span_suite`: `write_u8 out-of-bounds`, `span_write invalid range`, `span_memcpy dst out-of-bounds` | default, nvlog | VERIFIED |
+| Checked span edge overflow guards | `test_span_suite`: `span_read overflowed offset rejected`, zero-length boundary reads/writes, null argument guards | default, nvlog | VERIFIED |
 | Arena overflow detection | `test_arena_suite`: `arena overflow returns NULL`; `test_pipeline_suite`: `arena overflow incident kind` | default, nvlog | VERIFIED |
+| Arena overflow/overflow-arithmetic guards | `test_arena_suite`: `arena huge size overflow returns NULL`, corrupted `used` state rejection | default, nvlog | VERIFIED |
 | Success lifecycle events (`ENTERED -> OK -> COMPLETED`) | `test_pipeline_suite`: `success entered event`, `success ok event`, `success completed event` | default, nvlog | VERIFIED |
 | Failure lifecycle events remain structured | `test_pipeline_suite`: `first event is ENTERED`, `incident event kind is OOB write`, `last event is COMPLETED` | default, nvlog | VERIFIED |
 | Policy decision pipeline | `test_pipeline_suite`: `policy reset-block for non-failure kind`, `policy action is DROP_INPUT` | default, nvlog | VERIFIED |
 | Blackbox/report incident evidence | `test_pipeline_suite`: blackbox rollover/ownership checks, report field checks | default, nvlog | VERIFIED |
 | Report export/import parser robustness | `test_pipeline_suite`: `report parse line`, `report parse ex line`, invalid action/event/persisted rejections | default, nvlog | VERIFIED |
 | CSV event export/import parser robustness | `test_pipeline_suite`: format/parse round-trip, mixed valid/invalid import, trailing-garbage rejection | default, nvlog | VERIFIED |
+| CSV/report malformed/trailing-token rejection hardening | `test_pipeline_suite`: trailing-whitespace rejection, empty numeric token rejection, mutation-loop invalid CSV rejects | default, nvlog | VERIFIED |
 | safemath integration in checked arithmetic | Build-time integration in `CMakeLists.txt` (`LOXGUARD_HAVE_SAFEMATH`), runtime bounds tests in `test_span_suite`/`test_arena_suite` | default, nvlog | PARTIAL |
 | microlog integration in adapter logging | Build-time integration in `CMakeLists.txt` (`mlog.c`), adapter path exercised by pipeline flows | default, nvlog | PARTIAL |
 | microhealth partial integration | `test_pipeline_suite`: `health state OK after successful block`, `health state not-OK after ...` | default, nvlog | PARTIAL |
 | nvlog host persistence integration | `test_pipeline_suite`: `nvlog init ram`, `persist success on nvlog`, `persist failure on injected nvlog fault`, `report persisted true with nvlog initialized` | nvlog | VERIFIED |
+| nvlog failure-injection/init guard behavior | `test_pipeline_suite`: undersized init rejection, null-path rejection, post-shutdown unsupported persist | nvlog | VERIFIED |
+| Blackbox long-run rollover stability | `test_pipeline_suite`: `blackbox long stress ...` checks after `2020` inserts | default, nvlog | VERIFIED |
 | ecosystem companion layout is canonical | `CMakeLists.txt` ecosystem-first path with legacy fallback; optional-free build passes when `ecosystem/` is absent | default, nvlog, noeco | VERIFIED |
 | RTOS backend production behavior | Stub-only tests (`test_ports_suite`, `test_pipeline_suite`) | default, nvlog | NOT VERIFIED |
 | MPU backend production behavior | Stub-only tests (`test_ports_suite`, `test_pipeline_suite`) | default, nvlog | NOT VERIFIED |

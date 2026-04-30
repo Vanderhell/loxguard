@@ -31,6 +31,12 @@ int test_span_suite(void) {
 
     rc = lox_span_read(&rw, 6u, out, 4u);
     failed |= expect(rc == LOXGUARD_ERR_BOUNDS, "span_read invalid range");
+    rc = lox_span_read(&rw, sizeof(buf), out, 0u);
+    failed |= expect(rc == LOXGUARD_OK, "span_read zero-length at end valid");
+    rc = lox_span_read(&rw, (size_t)-2, out, 4u);
+    failed |= expect(rc == LOXGUARD_ERR_BOUNDS, "span_read overflowed offset rejected");
+    rc = lox_span_read(&rw, 0u, NULL, 1u);
+    failed |= expect(rc == LOXGUARD_ERR_NULL, "span_read null out rejected");
 
     rc = lox_span_write(&rw, 2u, src, sizeof(src));
     failed |= expect(rc == LOXGUARD_OK, "span_write valid");
@@ -38,6 +44,10 @@ int test_span_suite(void) {
 
     rc = lox_span_write(&rw, 7u, src, sizeof(src));
     failed |= expect(rc == LOXGUARD_ERR_BOUNDS, "span_write invalid range");
+    rc = lox_span_write(&rw, sizeof(buf), src, 0u);
+    failed |= expect(rc == LOXGUARD_OK, "span_write zero-length at end valid");
+    rc = lox_span_write(&rw, 0u, NULL, 1u);
+    failed |= expect(rc == LOXGUARD_ERR_NULL, "span_write null src rejected");
 
     {
         uint8_t src_buf[8] = {10,11,12,13,14,15,16,17};
@@ -58,6 +68,10 @@ int test_span_suite(void) {
 
         rc = lox_span_memcpy(&d_ro, 0u, &s, 0u, 1u);
         failed |= expect(rc == LOXGUARD_ERR_READONLY, "span_memcpy readonly dst rejection");
+        rc = lox_span_memcpy(&d, sizeof(dst_buf), &s, sizeof(src_buf), 0u);
+        failed |= expect(rc == LOXGUARD_OK, "span_memcpy zero-length at ends valid");
+        rc = lox_span_memcpy(NULL, 0u, &s, 0u, 1u);
+        failed |= expect(rc == LOXGUARD_ERR_NULL, "span_memcpy null dst rejected");
     }
 
     return failed;

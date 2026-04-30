@@ -18,6 +18,11 @@ static uint32_t fake_now_ms(void) {
     return fake_now;
 }
 
+static uint32_t lcg_next(uint32_t *state) {
+    *state = (*state * 1664525u) + 1013904223u;
+    return *state;
+}
+
 typedef struct {
     size_t count;
     char last_line[160];
@@ -70,11 +75,13 @@ int test_pipeline_suite(void) {
     char tiny[24];
     char report_line[256];
     char mixed_import[512];
+    char fuzz_line[192];
     size_t incident_idx;
     export_capture_t cap;
     lox_event_t policy_probe;
     int failed = 0;
     lox_event_t persist_probe;
+    uint32_t fuzz_state;
 
     lox_adapter_set_time_now(fake_now_ms);
     lox_set_recovery_callback(recovery_probe, NULL);
@@ -127,6 +134,17 @@ int test_pipeline_suite(void) {
     failed |= expect(rollover_bb.count == 16u, "blackbox rollover keeps bounded count");
     failed |= expect(strcmp(rollover_bb.events[0].block_name, "blk_4") == 0, "blackbox rollover oldest retained block");
     failed |= expect(strcmp(rollover_bb.events[15].block_name, "blk_19") == 0, "blackbox rollover newest block");
+    for (size_t i = 20u; i < 2020u; i++) {
+        (void)snprintf(rollover_block, sizeof(rollover_block), "blk_%zu", i);
+        (void)snprintf(rollover_reason, sizeof(rollover_reason), "rsn_%zu", i);
+        rollover_event.block_name = rollover_block;
+        rollover_event.reason = rollover_reason;
+        rollover_event.index = i;
+        lox_blackbox_store(&rollover_bb, &rollover_event);
+    }
+    failed |= expect(rollover_bb.count == 16u, "blackbox long stress keeps bounded count");
+    failed |= expect(strcmp(rollover_bb.events[0].block_name, "blk_2004") == 0, "blackbox long stress oldest retained block");
+    failed |= expect(strcmp(rollover_bb.events[15].block_name, "blk_2019") == 0, "blackbox long stress newest block");
 
     memset(out_ok, 0x33, sizeof(out_ok));
     report = lox_run_checked_parser_demo(in, sizeof(in), out_ok, sizeof(out_ok), scratch_ok, sizeof(scratch_ok), &bb);
@@ -224,21 +242,29 @@ int test_pipeline_suite(void) {
     failed |= expect(lox_report_parse_kv("block=x,reason=y,result=3,action=99,event_kind=3,duration_ticks=1,event_persisted=1", &parsed_report, &parsed_kind) == 0, "report parse rejects out-of-range action");
     failed |= expect(lox_report_parse_kv("block=x,reason=y,result=3,action=1,event_kind=99,duration_ticks=1,event_persisted=1", &parsed_report, &parsed_kind) == 0, "report parse rejects out-of-range event kind");
     failed |= expect(lox_report_parse_kv("block=x,reason=y,result=3,action=1,event_kind=3,duration_ticks=1,event_persisted=2", &parsed_report, &parsed_kind) == 0, "report parse rejects invalid persisted flag");
+    failed |= expect(lox_report_parse_kv("block=x,reason=y,result=3,action=1,event_kind=3,duration_ticks=1,event_persisted=1 ", &parsed_report, &parsed_kind) == 0, "report parse rejects trailing whitespace");
+    failed |= expect(lox_report_parse_kv("block=x,reason=y,result=3,action=1,event_kind=3,duration_ticks=1,event_persisted=-1", &parsed_report, &parsed_kind) == 0, "report parse rejects negative persisted");
 
 #if defined(LOXGUARD_USE_NVLOG) && defined(LOXGUARD_HAVE_NVLOG)
+    failed |= expect(lox_adapter_nvlog_init_ram(64u) != LOXGUARD_OK, "nvlog init rejects undersized region");
+    failed |= expect(lox_adapter_nvlog_init_file(NULL, 4096u) == LOXGUARD_ERR_NULL, "nvlog init file null path rejected");
     failed |= expect(lox_adapter_nvlog_init_ram(4096u) == LOXGUARD_OK, "nvlog init ram");
+    lox_adapter_nvlog_inject_fail_after(-1);
     failed |= expect(lox_adapter_persist_event(&persist_probe) == LOXGUARD_OK, "persist success on nvlog");
     report = lox_run_checked_parser_demo(in, sizeof(in), out_ok, sizeof(out_ok), scratch_ok, sizeof(scratch_ok), &bb);
     failed |= expect(report.event_persisted == 1, "report persisted true with nvlog initialized");
     lox_adapter_nvlog_inject_fail_after(0);
     failed |= expect(lox_adapter_persist_event(&persist_probe) != LOXGUARD_OK, "persist failure on injected nvlog fault");
     lox_adapter_nvlog_shutdown();
+    failed |= expect(lox_adapter_persist_event(&persist_probe) != LOXGUARD_OK, "persist unsupported after nvlog shutdown");
 #else
     failed |= expect(lox_adapter_persist_event(&persist_probe) != LOXGUARD_OK, "persist fallback when nvlog disabled");
 #endif
 
     failed |= expect(lox_event_parse_csv_line_ex("kind=99,block=x,reason=y,index=1,limit=2,aux=3", &parsed_event_snapshot) == 0, "csv parse ex rejects out-of-range kind");
     failed |= expect(lox_event_parse_csv_line_ex("kind=3,block=x,reason=y,index=1,limit=2,aux=3,extra=z", &parsed_event_snapshot) == 0, "csv parse ex rejects trailing garbage");
+    failed |= expect(lox_event_parse_csv_line_ex("kind=3,block=x,reason=y,index=1,limit=2,aux=3 ", &parsed_event_snapshot) == 0, "csv parse ex rejects trailing whitespace");
+    failed |= expect(lox_event_parse_csv_line_ex("kind=3,block=x,reason=y,index=,limit=2,aux=3", &parsed_event_snapshot) == 0, "csv parse ex rejects empty numeric token");
 
     (void)snprintf(
         mixed_import,
@@ -253,6 +279,30 @@ int test_pipeline_suite(void) {
     failed |= expect(imported_bb.count == 2u, "csv import mixed count");
     failed |= expect(strcmp(imported_bb.events[0].block_name, "ok_a") == 0, "csv import mixed first block");
     failed |= expect(strcmp(imported_bb.events[1].block_name, "ok_b") == 0, "csv import mixed second block");
+
+    fuzz_state = 0xC0FFEEu;
+    for (size_t i = 0u; i < 64u; i++) {
+        uint32_t r = lcg_next(&fuzz_state);
+        const char *prefix = (r & 1u) ? "kind=" : "knd=";
+        const char *suffix = (r & 2u) ? ",tail=Z" : "";
+        int n = snprintf(
+            fuzz_line,
+            sizeof(fuzz_line),
+            "%s%u,block=B%u,reason=%s,index=%u,limit=%u,aux=%u%s",
+            prefix,
+            (unsigned int)(r % 32u),
+            (unsigned int)(r % 100u),
+            (r & 4u) ? "R" : "",
+            (unsigned int)(r % 9u),
+            (unsigned int)(r % 9u),
+            (unsigned int)(r % 9u),
+            suffix
+        );
+        failed |= expect(n > 0, "csv fuzz line generation");
+        if (strcmp(prefix, "kind=") != 0 || strlen(suffix) != 0u || strstr(fuzz_line, "reason=,") != NULL) {
+            failed |= expect(lox_event_parse_csv_line_ex(fuzz_line, &parsed_event_snapshot) == 0, "csv fuzz invalid mutation rejected");
+        }
+    }
 
     (void)lox_blackbox_export_csv_buffer(&bb, 3u, tiny, sizeof(tiny));
     failed |= expect(tiny[sizeof(tiny) - 1u] == '\0', "csv buffer truncation keeps null-termination");
