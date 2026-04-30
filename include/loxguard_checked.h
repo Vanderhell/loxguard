@@ -1,0 +1,13 @@
+#ifndef LOXGUARD_CHECKED_H
+#define LOXGUARD_CHECKED_H
+
+#include "loxguard.h"
+
+#define LOX_READ_U8(span_ptr, idx, out_ptr) lox_span_read_u8((span_ptr), (idx), (out_ptr))
+#define LOX_WRITE_U8(span_ptr, idx, val) lox_span_write_u8((span_ptr), (idx), (val))
+#define LOX_MEMCPY(dst_ptr, dst_off, src_ptr, src_off, len) \
+    lox_span_memcpy((dst_ptr), (dst_off), (src_ptr), (src_off), (len))
+#define LOX_ARENA_ALLOC(arena_ptr, type, count) \
+    ((type *)lox_arena_alloc((arena_ptr), sizeof(type) * (count), sizeof(void *)))
+
+#endif

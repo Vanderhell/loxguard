@@ -1,0 +1,23 @@
+# Build artifacts
+build/
+*.obj
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.idb
+*.tlog
+*.lastbuildstate
+
+# CMake / Visual Studio generated
+CMakeFiles/
+CMakeCache.txt
+Testing/
+*.vcxproj
+*.vcxproj.filters
+*.sln
+*.user
+*.dir/
+
+# Test outputs
+*.log
