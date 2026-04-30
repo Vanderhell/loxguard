@@ -86,6 +86,7 @@ int lox_adapter_loxdb_persist_event(const lox_event_t *event) {
     return LOXGUARD_OK;
 }
 
+#ifdef LOXGUARD_TESTING
 void lox_adapter_loxdb_reset(void) {
     if (g_loxdb_ready) {
         (void)lox_deinit(&g_loxdb);
@@ -109,6 +110,7 @@ void lox_adapter_loxdb_inject_fail(int enabled) {
 uint32_t lox_adapter_loxdb_persist_count(void) {
     return g_loxdb_persist_count;
 }
+#endif /* LOXGUARD_TESTING */
 
 #else
 
@@ -117,6 +119,7 @@ int lox_adapter_loxdb_persist_event(const lox_event_t *event) {
     return LOXGUARD_ERR_UNSUPPORTED;
 }
 
+#ifdef LOXGUARD_TESTING
 void lox_adapter_loxdb_reset(void) {
 }
 
@@ -127,5 +130,6 @@ void lox_adapter_loxdb_inject_fail(int enabled) {
 uint32_t lox_adapter_loxdb_persist_count(void) {
     return 0u;
 }
+#endif /* LOXGUARD_TESTING */
 
 #endif

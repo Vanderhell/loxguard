@@ -1,5 +1,4 @@
 #include "loxguard.h"
-#define LOXGUARD_TESTING 1
 #include "loxguard_adapters.h"
 #include "loxguard_format.h"
 #include "loxguard_ports.h"

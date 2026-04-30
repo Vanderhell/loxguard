@@ -218,6 +218,21 @@ if(LOXGUARD_USE_NVLOG)
     endif()
 endif()
 
+get_target_property(LOXGUARD_ALL_SOURCES loxguard SOURCES)
+add_library(loxguard_testlib STATIC ${LOXGUARD_ALL_SOURCES})
+target_include_directories(loxguard_testlib PUBLIC include)
+
+get_target_property(LOXGUARD_ALL_INCLUDES loxguard INCLUDE_DIRECTORIES)
+if(LOXGUARD_ALL_INCLUDES)
+    target_include_directories(loxguard_testlib PRIVATE ${LOXGUARD_ALL_INCLUDES})
+endif()
+
+get_target_property(LOXGUARD_ALL_DEFS loxguard COMPILE_DEFINITIONS)
+if(LOXGUARD_ALL_DEFS)
+    target_compile_definitions(loxguard_testlib PRIVATE ${LOXGUARD_ALL_DEFS})
+endif()
+target_compile_definitions(loxguard_testlib PRIVATE LOXGUARD_TESTING=1)
+
 add_executable(loxguard_test
     tests/test_common.c
     tests/test_span.c
@@ -232,7 +247,8 @@ add_executable(loxguard_test
 )
 
 target_include_directories(loxguard_test PRIVATE tests)
-target_link_libraries(loxguard_test PRIVATE loxguard)
+target_compile_definitions(loxguard_test PRIVATE LOXGUARD_TESTING=1)
+target_link_libraries(loxguard_test PRIVATE loxguard_testlib)
 
 add_executable(loxguard_demo
     examples/host_demo.c
