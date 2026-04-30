@@ -15,6 +15,9 @@
 #if defined(LOXGUARD_HAVE_MICRORES) && defined(LOXGUARD_USE_MICRORES)
 #include "mres.h"
 #endif
+#if defined(LOXGUARD_HAVE_MICROBUS) && defined(LOXGUARD_USE_MICROBUS)
+#include "mbus.h"
+#endif
 
 #include <string.h>
 
@@ -40,6 +43,8 @@ typedef struct {
 } lox_adapter_block_state_t;
 
 static lox_adapter_block_state_t g_block_states[LOX_ADAPTER_BLOCK_SLOTS];
+static uint8_t g_bus_last_topic = 0u;
+static uint8_t g_bus_last_kind = 0u;
 
 static const char *lox_block_key(const char *block_name) {
     if (block_name == NULL || block_name[0] == '\0') {
@@ -251,6 +256,47 @@ static void lox_sync_recovery_state(lox_adapter_block_state_t *slot) {
 }
 #endif
 
+#if defined(LOXGUARD_HAVE_MICROBUS) && defined(LOXGUARD_USE_MICROBUS)
+static mbus_t g_mbus;
+static int g_mbus_ready = 0;
+static uint32_t g_mbus_deliver_count = 0u;
+
+static uint32_t lox_mbus_clock(void) {
+    return lox_adapter_now_ms();
+}
+
+static void lox_mbus_count_handler(const mbus_event_t *event, void *ctx) {
+    (void)ctx;
+    if (event == NULL) {
+        return;
+    }
+    g_mbus_deliver_count++;
+}
+
+static void lox_mbus_ensure_init(void) {
+    if (g_mbus_ready) {
+        return;
+    }
+    if (mbus_init(&g_mbus, lox_mbus_clock) != MBUS_OK) {
+        return;
+    }
+    if (mbus_subscribe(&g_mbus, MBUS_TOPIC_ANY, lox_mbus_count_handler, NULL) < 0) {
+        return;
+    }
+    g_mbus_ready = 1;
+}
+
+static uint8_t lox_event_to_bus_topic(lox_event_kind_t kind) {
+    if (kind == LOX_EVENT_BLOCK_PANIC || kind == LOX_EVENT_BLOCK_FAULT) {
+        return MBUS_TOPIC_PANIC;
+    }
+    if (kind == LOX_EVENT_BLOCK_TIMEOUT) {
+        return MBUS_TOPIC_WDT_TIMEOUT;
+    }
+    return MBUS_TOPIC_HEALTH_ALERT;
+}
+#endif
+
 int lox_adapter_log_event(const lox_event_t *event) {
 #ifdef LOXGUARD_HAVE_MICROLOG
     if (event != NULL) {
@@ -269,6 +315,19 @@ int lox_adapter_log_event(const lox_event_t *event) {
     }
 #else
     (void)event;
+#endif
+#if defined(LOXGUARD_HAVE_MICROBUS) && defined(LOXGUARD_USE_MICROBUS)
+    if (event != NULL) {
+        uint8_t payload[2];
+        lox_mbus_ensure_init();
+        if (g_mbus_ready) {
+            payload[0] = (uint8_t)event->kind;
+            payload[1] = (uint8_t)(event->aux_code & 0xFFu);
+            g_bus_last_topic = lox_event_to_bus_topic(event->kind);
+            g_bus_last_kind = (uint8_t)event->kind;
+            (void)mbus_publish(&g_mbus, g_bus_last_topic, payload, 2u);
+        }
+    }
 #endif
     return LOXGUARD_OK;
 }
@@ -481,4 +540,39 @@ int lox_adapter_health_get(void) {
 int lox_adapter_health_get_for_block(const char *block_name) {
     lox_adapter_block_state_t *slot = lox_block_state_get(block_name);
     return slot->health_code;
+}
+
+void lox_adapter_bus_reset_stats(void) {
+    g_bus_last_topic = 0u;
+    g_bus_last_kind = 0u;
+#if defined(LOXGUARD_HAVE_MICROBUS) && defined(LOXGUARD_USE_MICROBUS)
+    g_mbus_ready = 0;
+    g_mbus_deliver_count = 0u;
+#endif
+}
+
+uint32_t lox_adapter_bus_publish_count(void) {
+#if defined(LOXGUARD_HAVE_MICROBUS) && defined(LOXGUARD_USE_MICROBUS)
+    lox_mbus_ensure_init();
+    if (g_mbus_ready) {
+        return mbus_publish_count(&g_mbus);
+    }
+#endif
+    return 0u;
+}
+
+uint32_t lox_adapter_bus_deliver_count(void) {
+#if defined(LOXGUARD_HAVE_MICROBUS) && defined(LOXGUARD_USE_MICROBUS)
+    return g_mbus_deliver_count;
+#else
+    return 0u;
+#endif
+}
+
+uint8_t lox_adapter_bus_last_topic(void) {
+    return g_bus_last_topic;
+}
+
+uint8_t lox_adapter_bus_last_kind(void) {
+    return g_bus_last_kind;
 }

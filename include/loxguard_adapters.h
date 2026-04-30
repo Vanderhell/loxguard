@@ -30,6 +30,11 @@ void lox_adapter_health_set(int degraded);
 void lox_adapter_health_set_for_block(const char *block_name, int degraded);
 int lox_adapter_health_get(void);
 int lox_adapter_health_get_for_block(const char *block_name);
+void lox_adapter_bus_reset_stats(void);
+uint32_t lox_adapter_bus_publish_count(void);
+uint32_t lox_adapter_bus_deliver_count(void);
+uint8_t lox_adapter_bus_last_topic(void);
+uint8_t lox_adapter_bus_last_kind(void);
 
 int lox_adapter_nvlog_init_ram(uint32_t size_bytes);
 int lox_adapter_nvlog_init_file(const char *path, uint32_t size_bytes);

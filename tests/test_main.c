@@ -11,11 +11,12 @@ int main(void) {
     failed |= test_rtos_bridge_suite();
     failed |= test_guarded_module_suite();
     failed |= test_ports_suite();
+    failed |= test_shell_suite();
 
     if (failed) {
         return 1;
     }
 
-    printf("PASS: span/arena/pipeline/rtos/guarded/ports test matrix\n");
+    printf("PASS: span/arena/pipeline/rtos/guarded/ports/shell test matrix\n");
     return 0;
 }

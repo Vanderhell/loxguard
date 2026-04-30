@@ -10,6 +10,14 @@ option(LOXGUARD_USE_MICROWDT "Enable microwdt companion watchdog/liveness adapte
 option(LOXGUARD_USE_MICROASSERT "Enable microassert companion adapter path when available" OFF)
 option(LOXGUARD_USE_PANICDUMP "Enable panicdump companion adapter path when available" OFF)
 option(LOXGUARD_USE_MICRORES "Enable microres companion recovery/circuit-breaker adapter path" OFF)
+option(LOXGUARD_USE_MICROBOOT "Enable microboot companion adapter path when available" OFF)
+option(LOXGUARD_USE_MICROBUS "Enable microbus companion adapter path when available" OFF)
+option(LOXGUARD_USE_MICROCBOR "Enable microcbor companion adapter path when available" OFF)
+option(LOXGUARD_USE_MICROFLASH "Enable microflash companion adapter path when available" OFF)
+option(LOXGUARD_USE_MICROSH "Enable microsh companion adapter path when available" OFF)
+option(LOXGUARD_USE_MICRORING "Enable microring companion adapter path when available" OFF)
+option(LOXGUARD_USE_MICROCONF "Enable microconf companion adapter path when available" OFF)
+option(LOXGUARD_USE_MICROTEST "Enable microtest companion smoke test path when available" OFF)
 
 add_library(loxguard STATIC
     src/loxguard.c
@@ -19,6 +27,7 @@ add_library(loxguard STATIC
     src/loxguard_format.c
     src/loxguard_rtos_bridge.c
     src/loxguard_ports.c
+    src/loxguard_shell.c
 )
 
 target_include_directories(loxguard PUBLIC include)
@@ -93,6 +102,71 @@ if(LOXGUARD_USE_MICRORES)
     endif()
 endif()
 
+if(LOXGUARD_USE_MICROBUS)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/microbus/include/mbus.h" AND EXISTS "${LOX_ECOSYSTEM_DIR}/microbus/src/mbus.c")
+        target_sources(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microbus/src/mbus.c")
+        target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microbus/include")
+        target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROBUS=1 LOXGUARD_USE_MICROBUS=1)
+    else()
+        message(WARNING "LOXGUARD_USE_MICROBUS=ON but microbus companion library is not available; building without microbus backend.")
+    endif()
+endif()
+
+if(LOXGUARD_USE_MICROSH)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/microsh/include/msh.h" AND EXISTS "${LOX_ECOSYSTEM_DIR}/microsh/src/msh.c")
+        target_sources(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microsh/src/msh.c")
+        target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microsh/include")
+        target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROSH=1 LOXGUARD_USE_MICROSH=1)
+    else()
+        message(WARNING "LOXGUARD_USE_MICROSH=ON but microsh companion library is not available; building without microsh backend.")
+    endif()
+endif()
+
+if(LOXGUARD_USE_MICROBOOT)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/microboot/include/mboot.h")
+        target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microboot/include")
+        target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROBOOT=1 LOXGUARD_USE_MICROBOOT=1)
+    else()
+        message(WARNING "LOXGUARD_USE_MICROBOOT=ON but microboot companion library is not available.")
+    endif()
+endif()
+
+if(LOXGUARD_USE_MICROCBOR)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/microcbor/include/mcbor.h")
+        target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microcbor/include")
+        target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROCBOR=1 LOXGUARD_USE_MICROCBOR=1)
+    else()
+        message(WARNING "LOXGUARD_USE_MICROCBOR=ON but microcbor companion library is not available.")
+    endif()
+endif()
+
+if(LOXGUARD_USE_MICROFLASH)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/microflash/include/mflash.h")
+        target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microflash/include")
+        target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROFLASH=1 LOXGUARD_USE_MICROFLASH=1)
+    else()
+        message(WARNING "LOXGUARD_USE_MICROFLASH=ON but microflash companion library is not available.")
+    endif()
+endif()
+
+if(LOXGUARD_USE_MICRORING)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/micoring/include/micoring.h")
+        target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/micoring/include")
+        target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICRORING=1 LOXGUARD_USE_MICRORING=1)
+    else()
+        message(WARNING "LOXGUARD_USE_MICRORING=ON but micoring companion library is not available.")
+    endif()
+endif()
+
+if(LOXGUARD_USE_MICROCONF)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/microconf/include/mconf.h")
+        target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microconf/include")
+        target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROCONF=1 LOXGUARD_USE_MICROCONF=1)
+    else()
+        message(WARNING "LOXGUARD_USE_MICROCONF=ON but microconf companion library is not available.")
+    endif()
+endif()
+
 if(LOXGUARD_USE_NVLOG)
     if(EXISTS "${LOX_ECOSYSTEM_DIR}/nvlog/include/nvlog.h" AND
        EXISTS "${LOX_ECOSYSTEM_DIR}/nvlog/src/nvlog.c" AND
@@ -120,6 +194,7 @@ add_executable(loxguard_test
     tests/test_rtos_bridge.c
     tests/test_guarded_module.c
     tests/test_ports.c
+    tests/test_shell.c
     tests/test_main.c
     examples/guarded/guarded_parser.c
 )
@@ -146,6 +221,16 @@ add_test(
     NAME loxguard_static_check
     COMMAND powershell -ExecutionPolicy Bypass -File ${CMAKE_SOURCE_DIR}/tools/guard_static_check.ps1 -Path ${CMAKE_SOURCE_DIR}/src
 )
+
+if(LOXGUARD_USE_MICROTEST)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/microtest/include/mtest.h")
+        add_executable(loxguard_microtest_smoke tests/test_microtest_smoke.c)
+        target_include_directories(loxguard_microtest_smoke PRIVATE "${LOX_ECOSYSTEM_DIR}/microtest/include")
+        add_test(NAME loxguard_microtest_smoke COMMAND $<TARGET_FILE:loxguard_microtest_smoke>)
+    else()
+        message(WARNING "LOXGUARD_USE_MICROTEST=ON but microtest companion library is not available.")
+    endif()
+endif()
 add_test(
     NAME loxguard_static_check_guarded
     COMMAND powershell -ExecutionPolicy Bypass -File ${CMAKE_SOURCE_DIR}/tools/guard_static_check.ps1 -Path ${CMAKE_SOURCE_DIR}/examples/guarded

@@ -86,6 +86,7 @@ int test_pipeline_suite(void) {
     lox_adapter_set_time_now(fake_now_ms);
     lox_adapter_watchdog_reset();
     lox_adapter_recovery_reset();
+    lox_adapter_bus_reset_stats();
     lox_set_recovery_callback(recovery_probe, NULL);
     memset(&persist_probe, 0, sizeof(persist_probe));
     persist_probe.kind = LOX_EVENT_BLOCK_OK;
@@ -159,6 +160,12 @@ int test_pipeline_suite(void) {
     failed |= expect(bb.events[2].kind == LOX_EVENT_BLOCK_COMPLETED, "success completed event");
     failed |= expect(lox_adapter_health_get() == 0, "health state OK after successful block");
     failed |= expect(lox_adapter_watchdog_state_get() == 0, "watchdog state OK after successful block");
+    if (lox_adapter_bus_publish_count() > 0u) {
+        failed |= expect(lox_adapter_bus_publish_count() >= 3u, "microbus publishes success lifecycle events");
+        failed |= expect(lox_adapter_bus_last_kind() == (uint8_t)LOX_EVENT_BLOCK_COMPLETED, "microbus last kind after success");
+    } else {
+        failed |= expect(lox_adapter_bus_publish_count() == 0u, "microbus disabled fallback count");
+    }
 
     recovery_calls = 0;
     memset(out_fail, 0x11, sizeof(out_fail));
@@ -180,6 +187,10 @@ int test_pipeline_suite(void) {
     failed |= expect(last_action == LOX_ACTION_DROP_INPUT, "recovery action on bounds");
     failed |= expect(last_kind == LOX_EVENT_BLOCK_WRITE_OUT_OF_BOUNDS, "recovery kind on bounds");
     failed |= expect(lox_adapter_watchdog_state_get() != 0, "watchdog state non-OK on bounds failure mapping");
+    if (lox_adapter_bus_publish_count() > 0u) {
+        failed |= expect(lox_adapter_bus_publish_count() >= 6u, "microbus publishes failure lifecycle events");
+        failed |= expect(lox_adapter_bus_last_kind() == (uint8_t)LOX_EVENT_BLOCK_COMPLETED, "microbus last kind after failure");
+    }
 
     (void)lox_event_format_csv(&bb.events[incident_idx], line, sizeof(line));
     failed |= expect(strstr(line, "reason=BOUNDS") != NULL, "csv export contains BOUNDS");
@@ -216,6 +227,9 @@ int test_pipeline_suite(void) {
     failed |= expect(report.result == LOX_RESULT_ERROR, "panic demo result");
     failed |= expect(report.action == LOX_ACTION_DROP_INPUT, "panic demo action");
     failed |= expect(bb.events[incident_idx].kind == LOX_EVENT_BLOCK_PANIC, "panic demo incident kind");
+    if (lox_adapter_bus_publish_count() > 0u) {
+        failed |= expect(lox_adapter_bus_last_kind() == (uint8_t)LOX_EVENT_BLOCK_COMPLETED, "microbus panic flow completes");
+    }
 
     recovery_calls = 0;
     report = lox_run_guard_fault_demo(&bb);
