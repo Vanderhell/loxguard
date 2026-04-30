@@ -86,14 +86,19 @@ GitHub Actions workflow: `.github/workflows/ci.yml`
 - `nvlog`: configure/build/test with `LOXGUARD_USE_NVLOG=ON`
 - `noecosystem`: verifies default build/test with `ecosystem/` absent
 
-## Release Checksum
+## Automated Releases
 
-Workflow: `.github/workflows/release-check.yml`
+Workflow: `.github/workflows/release.yml`
 
-- creates `loxguard-<version>.zip` from source
-- computes SHA256 via PowerShell `Get-FileHash`
-- uploads archive + `.sha256` as workflow artifacts
-- does not auto-publish a GitHub Release
+- runs automatically on pushed tags matching `v*`
+- verifies before publish:
+  - default configure/build/test
+  - nvlog-enabled configure/build/test
+  - no-ecosystem configure/build/test
+- creates release assets:
+  - `loxguard-<tag>.zip`
+  - `loxguard-<tag>.zip.sha256`
+- creates GitHub Release automatically and uploads both assets
 
 ## Companion Libraries
 

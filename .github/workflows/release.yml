@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-release:
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure default
+        shell: pwsh
+        run: cmake -S . -B build
+
+      - name: Build default
+        shell: pwsh
+        run: cmake --build build --config Debug
+
+      - name: Test default
+        shell: pwsh
+        run: ctest --test-dir build -C Debug --output-on-failure
+
+      - name: Fetch nvlog companion module
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path ecosystem -Force | Out-Null
+          git clone --depth 1 https://github.com/Vanderhell/nvlog ecosystem/nvlog
+
+      - name: Configure nvlog
+        shell: pwsh
+        run: cmake -S . -B build_nvlog -DLOXGUARD_USE_NVLOG=ON
+
+      - name: Build nvlog
+        shell: pwsh
+        run: cmake --build build_nvlog --config Debug
+
+      - name: Test nvlog
+        shell: pwsh
+        run: ctest --test-dir build_nvlog -C Debug --output-on-failure
+
+      - name: Ensure ecosystem is absent for no-ecosystem verification
+        shell: pwsh
+        run: |
+          if (Test-Path ecosystem) {
+            Remove-Item -Recurse -Force ecosystem
+          }
+
+      - name: Configure no-ecosystem default
+        shell: pwsh
+        run: cmake -S . -B build_noeco
+
+      - name: Build no-ecosystem default
+        shell: pwsh
+        run: cmake --build build_noeco --config Debug
+
+      - name: Test no-ecosystem default
+        shell: pwsh
+        run: ctest --test-dir build_noeco -C Debug --output-on-failure
+
+      - name: Prepare release files
+        id: prep
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $zip = "loxguard-$tag.zip"
+          $sha = "$zip.sha256"
+          git archive --format=zip --output=$zip HEAD
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          Set-Content -Path $sha -Value "$hash  $zip"
+
+          $notesPath = "docs/RELEASE_NOTES_$tag.md"
+          if (Test-Path $notesPath) {
+            "notes_file=$notesPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } elseif (Test-Path "docs/RELEASE_NOTES_v0.1.0-alpha.md" -and $tag -eq "v0.1.0-alpha") {
+            "notes_file=docs/RELEASE_NOTES_v0.1.0-alpha.md" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            $fallback = "release-notes-generated.md"
+            @"
+# loxguard $tag
+
+Automated tag release from GitHub Actions.
+
+- Verified in workflow:
+  - default configure/build/test
+  - nvlog-enabled configure/build/test
+  - no-ecosystem configure/build/test
+"@ | Set-Content -Path $fallback
+            "notes_file=$fallback" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
+          "zip_file=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "sha_file=$sha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-files-${{ github.ref_name }}
+          path: |
+            ${{ steps.prep.outputs.zip_file }}
+            ${{ steps.prep.outputs.sha_file }}
+
+      - name: Create GitHub Release and upload assets
+        shell: pwsh
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            "${{ steps.prep.outputs.zip_file }}" `
+            "${{ steps.prep.outputs.sha_file }}" `
+            --title "loxguard ${{ github.ref_name }}" `
+            --notes-file "${{ steps.prep.outputs.notes_file }}"
