@@ -84,16 +84,16 @@ jobs:
             "notes_file=docs/RELEASE_NOTES_v0.1.0-alpha.md" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           } else {
             $fallback = "release-notes-generated.md"
-            @"
-# loxguard $tag
-
-Automated tag release from GitHub Actions.
-
-- Verified in workflow:
-  - default configure/build/test
-  - nvlog-enabled configure/build/test
-  - no-ecosystem configure/build/test
-"@ | Set-Content -Path $fallback
+            @(
+              "# loxguard $tag",
+              "",
+              "Automated tag release from GitHub Actions.",
+              "",
+              "- Verified in workflow:",
+              "  - default configure/build/test",
+              "  - nvlog-enabled configure/build/test",
+              "  - no-ecosystem configure/build/test"
+            ) | Set-Content -Path $fallback
             "notes_file=$fallback" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           }
 
