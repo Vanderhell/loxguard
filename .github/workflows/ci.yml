@@ -7,69 +7,87 @@ on:
   workflow_dispatch:
 
 jobs:
-  default:
+  build-test:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: default
+            build_dir: build
+            cmake_flags: ""
+            companions: ""
+            no_ecosystem: false
+          - name: no-ecosystem
+            build_dir: build_noeco
+            cmake_flags: ""
+            companions: ""
+            no_ecosystem: true
+          - name: nvlog
+            build_dir: build_nvlog
+            cmake_flags: "-DLOXGUARD_USE_NVLOG=ON"
+            companions: "nvlog"
+            no_ecosystem: false
+          - name: microres
+            build_dir: build_mres
+            cmake_flags: "-DLOXGUARD_USE_MICRORES=ON"
+            companions: "microres"
+            no_ecosystem: false
+          - name: microtimer-microwdt
+            build_dir: build_mtimer_mwdt
+            cmake_flags: "-DLOXGUARD_USE_MICROTIMER=ON -DLOXGUARD_USE_MICROWDT=ON"
+            companions: "microtimer microwdt"
+            no_ecosystem: false
+          - name: microbus
+            build_dir: build_microbus
+            cmake_flags: "-DLOXGUARD_USE_MICROBUS=ON"
+            companions: "microbus"
+            no_ecosystem: false
+          - name: microsh
+            build_dir: build_microsh
+            cmake_flags: "-DLOXGUARD_USE_MICROSH=ON"
+            companions: "microsh"
+            no_ecosystem: false
+          - name: microtest
+            build_dir: build_microtest
+            cmake_flags: "-DLOXGUARD_USE_MICROTEST=ON"
+            companions: "microtest"
+            no_ecosystem: false
+          - name: all-companions-safe
+            build_dir: build_all_companions
+            cmake_flags: "-DLOXGUARD_USE_NVLOG=ON -DLOXGUARD_USE_MICROTIMER=ON -DLOXGUARD_USE_MICROWDT=ON -DLOXGUARD_USE_MICRORES=ON -DLOXGUARD_USE_MICROBUS=ON -DLOXGUARD_USE_MICROSH=ON -DLOXGUARD_USE_MICROTEST=ON"
+            companions: "nvlog microtimer microwdt microres microbus microsh microtest"
+            no_ecosystem: false
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure default
-        shell: pwsh
-        run: cmake -S . -B build
-
-      - name: Build default
-        shell: pwsh
-        run: cmake --build build --config Debug
-
-      - name: Test default
-        shell: pwsh
-        run: ctest --test-dir build -C Debug --output-on-failure
-
-  nvlog:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Fetch nvlog companion module
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path ecosystem -Force | Out-Null
-          git clone --depth 1 https://github.com/Vanderhell/nvlog ecosystem/nvlog
-
-      - name: Configure nvlog
-        shell: pwsh
-        run: cmake -S . -B build_nvlog -DLOXGUARD_USE_NVLOG=ON
-
-      - name: Build nvlog
-        shell: pwsh
-        run: cmake --build build_nvlog --config Debug
-
-      - name: Test nvlog
-        shell: pwsh
-        run: ctest --test-dir build_nvlog -C Debug --output-on-failure
-
-  noecosystem:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Ensure ecosystem is absent
+      - name: Ensure ecosystem is absent (no-ecosystem)
+        if: matrix.no_ecosystem
         shell: pwsh
         run: |
           if (Test-Path ecosystem) {
             Remove-Item -Recurse -Force ecosystem
           }
 
-      - name: Configure no-ecosystem default
+      - name: Fetch required companion libraries
+        if: ${{ !matrix.no_ecosystem && matrix.companions != '' }}
         shell: pwsh
-        run: cmake -S . -B build_noeco
+        run: |
+          New-Item -ItemType Directory -Path ecosystem -Force | Out-Null
+          foreach ($repo in "${{ matrix.companions }}".Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)) {
+            git clone --depth 1 "https://github.com/Vanderhell/$repo" "ecosystem/$repo"
+          }
 
-      - name: Build no-ecosystem default
+      - name: Configure (${{ matrix.name }})
         shell: pwsh
-        run: cmake --build build_noeco --config Debug
+        run: cmake -S . -B ${{ matrix.build_dir }} ${{ matrix.cmake_flags }}
 
-      - name: Test no-ecosystem default
+      - name: Build (${{ matrix.name }})
         shell: pwsh
-        run: ctest --test-dir build_noeco -C Debug --output-on-failure
+        run: cmake --build ${{ matrix.build_dir }} --config Debug
+
+      - name: Test (${{ matrix.name }})
+        shell: pwsh
+        run: ctest --test-dir ${{ matrix.build_dir }} -C Debug --output-on-failure
