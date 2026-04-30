@@ -29,6 +29,11 @@ All notable changes to this project are documented in this file.
 - Added optional companion switches for future integration:
   - `LOXGUARD_USE_MICROASSERT`
   - `LOXGUARD_USE_PANICDUMP`
+- Hardened runtime invariant tests:
+  - span null+zero-length convention checks,
+  - arena post-failure allocation-state stability checks,
+  - deterministic mixed-path stress loop covering success/failure/persistence-routing invariants.
+- Added technical pre-HW validation checklist in `TODO.md`.
 
 ## v0.1.0-alpha (2026-04-30)
 
