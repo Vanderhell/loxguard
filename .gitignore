@@ -13,6 +13,7 @@ build_all_companions/
 build_microbus/
 build_microsh/
 build_microtest/
+build_loxdb/
 *.obj
 *.lib
 *.exp

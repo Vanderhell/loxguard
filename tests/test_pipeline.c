@@ -296,6 +296,12 @@ int test_pipeline_suite(void) {
     failed |= expect(lox_adapter_persist_event(&persist_probe) != LOXGUARD_OK, "persist fallback when nvlog disabled");
 #endif
 
+#if defined(LOXGUARD_USE_LOXDB) && defined(LOXGUARD_HAVE_LOXDB)
+    failed |= expect(lox_adapter_persist_event(&persist_probe) == LOXGUARD_OK, "persist success on loxdb fallback");
+    report = lox_run_checked_parser_demo(in, sizeof(in), out_ok, sizeof(out_ok), scratch_ok, sizeof(scratch_ok), &bb);
+    failed |= expect(report.event_persisted == 1, "report persisted true with loxdb fallback");
+#endif
+
     failed |= expect(lox_event_parse_csv_line_ex("kind=99,block=x,reason=y,index=1,limit=2,aux=3", &parsed_event_snapshot) == 0, "csv parse ex rejects out-of-range kind");
     failed |= expect(lox_event_parse_csv_line_ex("kind=3,block=x,reason=y,index=1,limit=2,aux=3,extra=z", &parsed_event_snapshot) == 0, "csv parse ex rejects trailing garbage");
     failed |= expect(lox_event_parse_csv_line_ex("kind=3,block=x,reason=y,index=1,limit=2,aux=3 ", &parsed_event_snapshot) == 0, "csv parse ex rejects trailing whitespace");

@@ -73,7 +73,12 @@ int lox_adapter_persist_event(const lox_event_t *event) {
         return LOXGUARD_ERR_NULL;
     }
     if (!g_nvlog_ready) {
+#if defined(LOXGUARD_USE_LOXDB) && defined(LOXGUARD_HAVE_LOXDB)
+        extern int lox_adapter_loxdb_persist_event(const lox_event_t *event);
+        return lox_adapter_loxdb_persist_event(event);
+#else
         return LOXGUARD_ERR_UNSUPPORTED;
+#endif
     }
 
     memset(&rec, 0, sizeof(rec));
@@ -115,8 +120,13 @@ void lox_adapter_nvlog_inject_fail_after(int32_t n) {
 }
 
 int lox_adapter_persist_event(const lox_event_t *event) {
+#if defined(LOXGUARD_USE_LOXDB) && defined(LOXGUARD_HAVE_LOXDB)
+    extern int lox_adapter_loxdb_persist_event(const lox_event_t *event);
+    return lox_adapter_loxdb_persist_event(event);
+#else
     (void)event;
     return LOXGUARD_ERR_UNSUPPORTED;
+#endif
 }
 
 #endif

@@ -18,11 +18,13 @@ option(LOXGUARD_USE_MICROSH "Enable microsh companion adapter path when availabl
 option(LOXGUARD_USE_MICRORING "Enable microring companion adapter path when available" OFF)
 option(LOXGUARD_USE_MICROCONF "Enable microconf companion adapter path when available" OFF)
 option(LOXGUARD_USE_MICROTEST "Enable microtest companion smoke test path when available" OFF)
+option(LOXGUARD_USE_LOXDB "Enable loxdb companion event-history adapter path when available" OFF)
 
 add_library(loxguard STATIC
     src/loxguard.c
     src/loxguard_adapters.c
     src/adapters/loxguard_nvlog_adapter.c
+    src/adapters/loxguard_loxdb_adapter.c
     src/loxguard_backends.c
     src/loxguard_format.c
     src/loxguard_rtos_bridge.c
@@ -164,6 +166,36 @@ if(LOXGUARD_USE_MICROCONF)
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROCONF=1 LOXGUARD_USE_MICROCONF=1)
     else()
         message(WARNING "LOXGUARD_USE_MICROCONF=ON but microconf companion library is not available.")
+    endif()
+endif()
+
+if(LOXGUARD_USE_LOXDB)
+    if(EXISTS "${LOX_ECOSYSTEM_DIR}/loxdb/include/lox.h" AND
+       EXISTS "${LOX_ECOSYSTEM_DIR}/loxdb/src/loxdb.c" AND
+       EXISTS "${LOX_ECOSYSTEM_DIR}/loxdb/src/lox_kv.c" AND
+       EXISTS "${LOX_ECOSYSTEM_DIR}/loxdb/src/lox_ts.c" AND
+       EXISTS "${LOX_ECOSYSTEM_DIR}/loxdb/src/lox_rel.c" AND
+       EXISTS "${LOX_ECOSYSTEM_DIR}/loxdb/src/lox_wal.c" AND
+       EXISTS "${LOX_ECOSYSTEM_DIR}/loxdb/src/lox_crc.c" AND
+       EXISTS "${LOX_ECOSYSTEM_DIR}/loxdb/port/ram/lox_port_ram.c" AND
+       EXISTS "${LOX_ECOSYSTEM_DIR}/loxdb/port/ram/lox_port_ram.h")
+        target_sources(loxguard PRIVATE
+            "${LOX_ECOSYSTEM_DIR}/loxdb/src/loxdb.c"
+            "${LOX_ECOSYSTEM_DIR}/loxdb/src/lox_kv.c"
+            "${LOX_ECOSYSTEM_DIR}/loxdb/src/lox_ts.c"
+            "${LOX_ECOSYSTEM_DIR}/loxdb/src/lox_rel.c"
+            "${LOX_ECOSYSTEM_DIR}/loxdb/src/lox_wal.c"
+            "${LOX_ECOSYSTEM_DIR}/loxdb/src/lox_crc.c"
+            "${LOX_ECOSYSTEM_DIR}/loxdb/port/ram/lox_port_ram.c"
+        )
+        target_include_directories(loxguard PRIVATE
+            "${LOX_ECOSYSTEM_DIR}/loxdb/include"
+            "${LOX_ECOSYSTEM_DIR}/loxdb/port/ram"
+            "${LOX_ECOSYSTEM_DIR}/loxdb/src"
+        )
+        target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_LOXDB=1 LOXGUARD_USE_LOXDB=1)
+    else()
+        message(WARNING "LOXGUARD_USE_LOXDB=ON but loxdb companion library is not fully available; building without loxdb backend.")
     endif()
 endif()
 
