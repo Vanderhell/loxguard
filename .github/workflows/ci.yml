@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  default:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure default
+        shell: pwsh
+        run: cmake -S . -B build
+
+      - name: Build default
+        shell: pwsh
+        run: cmake --build build --config Debug
+
+      - name: Test default
+        shell: pwsh
+        run: ctest --test-dir build -C Debug --output-on-failure
+
+  nvlog:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch nvlog companion module
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path ecosystem -Force | Out-Null
+          git clone --depth 1 https://github.com/Vanderhell/nvlog ecosystem/nvlog
+
+      - name: Configure nvlog
+        shell: pwsh
+        run: cmake -S . -B build_nvlog -DLOXGUARD_USE_NVLOG=ON
+
+      - name: Build nvlog
+        shell: pwsh
+        run: cmake --build build_nvlog --config Debug
+
+      - name: Test nvlog
+        shell: pwsh
+        run: ctest --test-dir build_nvlog -C Debug --output-on-failure
+
+  noecosystem:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure ecosystem is absent
+        shell: pwsh
+        run: |
+          if (Test-Path ecosystem) {
+            Remove-Item -Recurse -Force ecosystem
+          }
+
+      - name: Configure no-ecosystem default
+        shell: pwsh
+        run: cmake -S . -B build_noeco
+
+      - name: Build no-ecosystem default
+        shell: pwsh
+        run: cmake --build build_noeco --config Debug
+
+      - name: Test no-ecosystem default
+        shell: pwsh
+        run: ctest --test-dir build_noeco -C Debug --output-on-failure
