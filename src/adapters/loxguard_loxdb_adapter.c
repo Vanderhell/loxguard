@@ -20,6 +20,8 @@ static lox_t g_loxdb;
 static lox_storage_t g_loxdb_storage;
 static uint8_t g_loxdb_mem[64u * 1024u];
 static uint32_t g_loxdb_seq = 0u;
+static uint32_t g_loxdb_persist_count = 0u;
+static int g_loxdb_force_fail = 0;
 static int g_loxdb_ready = 0;
 
 static lox_timestamp_t lox_loxdb_now(void) {
@@ -59,6 +61,9 @@ int lox_adapter_loxdb_persist_event(const lox_event_t *event) {
     if (event == NULL) {
         return LOXGUARD_ERR_NULL;
     }
+    if (g_loxdb_force_fail) {
+        return LOXGUARD_ERR_UNSUPPORTED;
+    }
     if (lox_loxdb_ensure_init() != LOXGUARD_OK) {
         return LOXGUARD_ERR_UNSUPPORTED;
     }
@@ -77,7 +82,32 @@ int lox_adapter_loxdb_persist_event(const lox_event_t *event) {
     if (lox_kv_set(&g_loxdb, key, &rec, sizeof(rec), 0u) != LOX_OK) {
         return LOXGUARD_ERR_UNSUPPORTED;
     }
+    g_loxdb_persist_count++;
     return LOXGUARD_OK;
+}
+
+void lox_adapter_loxdb_reset(void) {
+    if (g_loxdb_ready) {
+        (void)lox_deinit(&g_loxdb);
+    }
+    if (g_loxdb_storage.ctx != NULL) {
+        lox_port_ram_deinit(&g_loxdb_storage);
+    }
+    memset(&g_loxdb, 0, sizeof(g_loxdb));
+    memset(&g_loxdb_storage, 0, sizeof(g_loxdb_storage));
+    memset(g_loxdb_mem, 0, sizeof(g_loxdb_mem));
+    g_loxdb_seq = 0u;
+    g_loxdb_persist_count = 0u;
+    g_loxdb_force_fail = 0;
+    g_loxdb_ready = 0;
+}
+
+void lox_adapter_loxdb_inject_fail(int enabled) {
+    g_loxdb_force_fail = enabled ? 1 : 0;
+}
+
+uint32_t lox_adapter_loxdb_persist_count(void) {
+    return g_loxdb_persist_count;
 }
 
 #else
@@ -85,6 +115,17 @@ int lox_adapter_loxdb_persist_event(const lox_event_t *event) {
 int lox_adapter_loxdb_persist_event(const lox_event_t *event) {
     (void)event;
     return LOXGUARD_ERR_UNSUPPORTED;
+}
+
+void lox_adapter_loxdb_reset(void) {
+}
+
+void lox_adapter_loxdb_inject_fail(int enabled) {
+    (void)enabled;
+}
+
+uint32_t lox_adapter_loxdb_persist_count(void) {
+    return 0u;
 }
 
 #endif

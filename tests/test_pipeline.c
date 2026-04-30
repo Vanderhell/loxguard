@@ -87,6 +87,9 @@ int test_pipeline_suite(void) {
     lox_adapter_watchdog_reset();
     lox_adapter_recovery_reset();
     lox_adapter_bus_reset_stats();
+    lox_adapter_nvlog_shutdown();
+    lox_adapter_loxdb_reset();
+    lox_adapter_loxdb_inject_fail(0);
     lox_set_recovery_callback(recovery_probe, NULL);
     memset(&persist_probe, 0, sizeof(persist_probe));
     persist_probe.kind = LOX_EVENT_BLOCK_OK;
@@ -281,25 +284,55 @@ int test_pipeline_suite(void) {
     failed |= expect(lox_report_parse_kv("block=x,reason=y,result=3,action=1,event_kind=3,duration_ticks=1,event_persisted=-1", &parsed_report, &parsed_kind) == 0, "report parse rejects negative persisted");
 
 #if defined(LOXGUARD_USE_NVLOG) && defined(LOXGUARD_HAVE_NVLOG)
+    lox_adapter_loxdb_reset();
+    lox_adapter_loxdb_inject_fail(0);
     failed |= expect(lox_adapter_nvlog_init_ram(64u) != LOXGUARD_OK, "nvlog init rejects undersized region");
     failed |= expect(lox_adapter_nvlog_init_file(NULL, 4096u) == LOXGUARD_ERR_NULL, "nvlog init file null path rejected");
     failed |= expect(lox_adapter_nvlog_init_ram(4096u) == LOXGUARD_OK, "nvlog init ram");
     lox_adapter_nvlog_inject_fail_after(-1);
     failed |= expect(lox_adapter_persist_event(&persist_probe) == LOXGUARD_OK, "persist success on nvlog");
+    failed |= expect(lox_adapter_loxdb_persist_count() == 0u, "nvlog success does not duplicate to loxdb");
     report = lox_run_checked_parser_demo(in, sizeof(in), out_ok, sizeof(out_ok), scratch_ok, sizeof(scratch_ok), &bb);
     failed |= expect(report.event_persisted == 1, "report persisted true with nvlog initialized");
     lox_adapter_nvlog_inject_fail_after(0);
+#if defined(LOXGUARD_USE_LOXDB) && defined(LOXGUARD_HAVE_LOXDB)
+    failed |= expect(lox_adapter_persist_event(&persist_probe) == LOXGUARD_OK, "nvlog fail falls back to loxdb");
+    failed |= expect(lox_adapter_loxdb_persist_count() == 1u, "loxdb fallback count after nvlog fail");
+    report = lox_run_checked_parser_demo(in, sizeof(in), out_ok, sizeof(out_ok), scratch_ok, sizeof(scratch_ok), &bb);
+    failed |= expect(report.event_persisted == 1, "report persisted true with nvlog fail + loxdb fallback");
+#else
     failed |= expect(lox_adapter_persist_event(&persist_probe) != LOXGUARD_OK, "persist failure on injected nvlog fault");
+#endif
     lox_adapter_nvlog_shutdown();
+#if defined(LOXGUARD_USE_LOXDB) && defined(LOXGUARD_HAVE_LOXDB)
+    failed |= expect(lox_adapter_persist_event(&persist_probe) == LOXGUARD_OK, "nvlog shutdown falls back to loxdb");
+#else
     failed |= expect(lox_adapter_persist_event(&persist_probe) != LOXGUARD_OK, "persist unsupported after nvlog shutdown");
+#endif
+#else
+    lox_adapter_loxdb_reset();
+    lox_adapter_loxdb_inject_fail(0);
+#if defined(LOXGUARD_USE_LOXDB) && defined(LOXGUARD_HAVE_LOXDB)
+    failed |= expect(lox_adapter_persist_event(&persist_probe) == LOXGUARD_OK, "persist via loxdb when nvlog disabled");
 #else
     failed |= expect(lox_adapter_persist_event(&persist_probe) != LOXGUARD_OK, "persist fallback when nvlog disabled");
 #endif
+#endif
 
 #if defined(LOXGUARD_USE_LOXDB) && defined(LOXGUARD_HAVE_LOXDB)
+    lox_adapter_nvlog_shutdown();
+    lox_adapter_loxdb_reset();
+    lox_adapter_loxdb_inject_fail(0);
     failed |= expect(lox_adapter_persist_event(&persist_probe) == LOXGUARD_OK, "persist success on loxdb fallback");
+    failed |= expect(lox_adapter_loxdb_persist_count() == 1u, "loxdb count on direct fallback");
     report = lox_run_checked_parser_demo(in, sizeof(in), out_ok, sizeof(out_ok), scratch_ok, sizeof(scratch_ok), &bb);
     failed |= expect(report.event_persisted == 1, "report persisted true with loxdb fallback");
+    lox_adapter_loxdb_reset();
+    lox_adapter_loxdb_inject_fail(1);
+    failed |= expect(lox_adapter_persist_event(&persist_probe) != LOXGUARD_OK, "both backends unavailable gives unsupported");
+    report = lox_run_checked_parser_demo(in, sizeof(in), out_ok, sizeof(out_ok), scratch_ok, sizeof(scratch_ok), &bb);
+    failed |= expect(report.event_persisted == 0, "report persisted false when both backends unavailable");
+    lox_adapter_loxdb_inject_fail(0);
 #endif
 
     failed |= expect(lox_event_parse_csv_line_ex("kind=99,block=x,reason=y,index=1,limit=2,aux=3", &parsed_event_snapshot) == 0, "csv parse ex rejects out-of-range kind");

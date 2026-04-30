@@ -94,7 +94,12 @@ int lox_adapter_persist_event(const lox_event_t *event) {
     }
 
     if (nvlog_append(&g_nvlog, &rec, (uint16_t)sizeof(rec)) != NVLOG_OK) {
+#if defined(LOXGUARD_USE_LOXDB) && defined(LOXGUARD_HAVE_LOXDB)
+        extern int lox_adapter_loxdb_persist_event(const lox_event_t *event);
+        return lox_adapter_loxdb_persist_event(event);
+#else
         return LOXGUARD_ERR_UNSUPPORTED;
+#endif
     }
     return LOXGUARD_OK;
 }

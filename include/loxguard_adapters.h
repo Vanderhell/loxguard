@@ -40,6 +40,9 @@ int lox_adapter_nvlog_init_ram(uint32_t size_bytes);
 int lox_adapter_nvlog_init_file(const char *path, uint32_t size_bytes);
 void lox_adapter_nvlog_shutdown(void);
 void lox_adapter_nvlog_inject_fail_after(int32_t n);
+void lox_adapter_loxdb_reset(void);
+void lox_adapter_loxdb_inject_fail(int enabled);
+uint32_t lox_adapter_loxdb_persist_count(void);
 
 #ifdef __cplusplus
 }

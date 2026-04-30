@@ -14,6 +14,7 @@ build_microbus/
 build_microsh/
 build_microtest/
 build_loxdb/
+build_nvlog_loxdb/
 *.obj
 *.lib
 *.exp
