@@ -439,6 +439,65 @@ int test_pipeline_suite(void) {
     failed |= expect(tiny[sizeof(tiny) - 1u] == '\0', "csv buffer truncation keeps null-termination");
     failed |= expect(lox_port_set_active(LOX_PORT_HOST) == 0, "restore host port after rtos");
 
+    for (size_t i = 0u; i < 200u; i++) {
+        int expect_ok = ((i % 3u) == 0u) ? 1 : 0;
+        lox_adapter_recovery_reset();
+        lox_adapter_watchdog_reset();
+#if defined(LOXGUARD_USE_NVLOG) && defined(LOXGUARD_HAVE_NVLOG)
+        failed |= expect(lox_adapter_nvlog_init_ram(4096u) == LOXGUARD_OK, "stress nvlog init");
+#if defined(LOXGUARD_USE_LOXDB) && defined(LOXGUARD_HAVE_LOXDB)
+        lox_adapter_loxdb_reset();
+        lox_adapter_loxdb_inject_fail(0);
+#endif
+        if ((i % 5u) == 0u) {
+            lox_adapter_nvlog_inject_fail_after(0);
+        } else {
+            lox_adapter_nvlog_inject_fail_after(-1);
+        }
+#else
+#if defined(LOXGUARD_USE_LOXDB) && defined(LOXGUARD_HAVE_LOXDB)
+        lox_adapter_loxdb_reset();
+        lox_adapter_loxdb_inject_fail(((i % 7u) == 0u) ? 1 : 0);
+#endif
+#endif
+        if (expect_ok) {
+            report = lox_run_checked_parser_demo(in, sizeof(in), out_ok, sizeof(out_ok), scratch_ok, sizeof(scratch_ok), &bb);
+            failed |= expect(report.result == LOX_RESULT_OK, "stress success result stable");
+            failed |= expect(bb.events[0].kind == LOX_EVENT_BLOCK_ENTERED, "stress success entered");
+            failed |= expect(bb.events[bb.count - 1u].kind == LOX_EVENT_BLOCK_COMPLETED, "stress success completed");
+        } else {
+            memset(out_fail, 0x55, sizeof(out_fail));
+            report = lox_run_checked_parser_demo(in, sizeof(in), out_fail, sizeof(out_fail), scratch_ok, sizeof(scratch_ok), &bb);
+            failed |= expect(report.result == LOX_RESULT_BOUNDS, "stress failure result stable");
+            failed |= expect(strcmp(report.reason, "BOUNDS") == 0, "stress failure reason stable");
+            failed |= expect(bb.events[bb.count - 2u].kind == LOX_EVENT_BLOCK_WRITE_OUT_OF_BOUNDS, "stress failure incident stable");
+            failed |= expect(out_fail[15] == 0x55u, "stress failure prevents oob write");
+        }
+        failed |= expect(report.duration_ticks > 0u, "stress duration stays positive");
+#if defined(LOXGUARD_USE_NVLOG) && defined(LOXGUARD_HAVE_NVLOG)
+#if defined(LOXGUARD_USE_LOXDB) && defined(LOXGUARD_HAVE_LOXDB)
+        failed |= expect(report.event_persisted == 1, "stress persisted true with nvlog/loxdb routing");
+#else
+        if ((i % 5u) == 0u) {
+            failed |= expect(report.event_persisted == 0, "stress persisted false on nvlog fault without fallback");
+        } else {
+            failed |= expect(report.event_persisted == 1, "stress persisted true on nvlog success");
+        }
+#endif
+        lox_adapter_nvlog_shutdown();
+#else
+#if defined(LOXGUARD_USE_LOXDB) && defined(LOXGUARD_HAVE_LOXDB)
+        if ((i % 7u) == 0u) {
+            failed |= expect(report.event_persisted == 0, "stress persisted false on loxdb injected failure");
+        } else {
+            failed |= expect(report.event_persisted == 1, "stress persisted true on loxdb path");
+        }
+#else
+        failed |= expect(report.event_persisted == 0, "stress persisted false without persistence backend");
+#endif
+#endif
+    }
+
     recovery_calls = 0;
     report = lox_run_mpu_fault_demo(&bb, "mpu_demo", 0x20000020u, 0x12u, 0x0u);
     incident_idx = bb.count - 2u;

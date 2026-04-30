@@ -37,6 +37,8 @@ int test_span_suite(void) {
     failed |= expect(rc == LOXGUARD_ERR_BOUNDS, "span_read overflowed offset rejected");
     rc = lox_span_read(&rw, 0u, NULL, 1u);
     failed |= expect(rc == LOXGUARD_ERR_NULL, "span_read null out rejected");
+    rc = lox_span_read(&rw, 0u, NULL, 0u);
+    failed |= expect(rc == LOXGUARD_ERR_NULL, "span_read null out zero-length follows null convention");
 
     rc = lox_span_write(&rw, 2u, src, sizeof(src));
     failed |= expect(rc == LOXGUARD_OK, "span_write valid");
@@ -48,6 +50,8 @@ int test_span_suite(void) {
     failed |= expect(rc == LOXGUARD_OK, "span_write zero-length at end valid");
     rc = lox_span_write(&rw, 0u, NULL, 1u);
     failed |= expect(rc == LOXGUARD_ERR_NULL, "span_write null src rejected");
+    rc = lox_span_write(&rw, 0u, NULL, 0u);
+    failed |= expect(rc == LOXGUARD_ERR_NULL, "span_write null src zero-length follows null convention");
 
     {
         uint8_t src_buf[8] = {10,11,12,13,14,15,16,17};
