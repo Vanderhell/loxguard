@@ -10,7 +10,42 @@
 
 static lox_recovery_cb_t g_recovery_cb = NULL;
 static void *g_recovery_user_ctx = NULL;
-static uint32_t g_failure_streak = 0u;
+
+#define LOX_FAILURE_STREAK_SLOTS 8u
+
+typedef struct {
+    int in_use;
+    char block_name[64];
+    uint32_t streak;
+} lox_failure_streak_t;
+
+static lox_failure_streak_t g_failure_streaks[LOX_FAILURE_STREAK_SLOTS];
+
+static uint32_t *lox_failure_streak_for_block(const char *block_name) {
+    size_t i;
+    size_t free_idx = LOX_FAILURE_STREAK_SLOTS;
+    const char *key = (block_name == NULL || block_name[0] == '\0') ? "global" : block_name;
+
+    for (i = 0u; i < LOX_FAILURE_STREAK_SLOTS; i++) {
+        if (g_failure_streaks[i].in_use) {
+            if (strncmp(g_failure_streaks[i].block_name, key, sizeof(g_failure_streaks[i].block_name)) == 0) {
+                return &g_failure_streaks[i].streak;
+            }
+        } else if (free_idx == LOX_FAILURE_STREAK_SLOTS) {
+            free_idx = i;
+        }
+    }
+
+    if (free_idx == LOX_FAILURE_STREAK_SLOTS) {
+        return &g_failure_streaks[0].streak;
+    }
+
+    g_failure_streaks[free_idx].in_use = 1;
+    strncpy(g_failure_streaks[free_idx].block_name, key, sizeof(g_failure_streaks[free_idx].block_name) - 1u);
+    g_failure_streaks[free_idx].block_name[sizeof(g_failure_streaks[free_idx].block_name) - 1u] = '\0';
+    g_failure_streaks[free_idx].streak = 0u;
+    return &g_failure_streaks[free_idx].streak;
+}
 
 static int lox_safe_add_size(size_t *out, size_t a, size_t b) {
 #ifdef LOXGUARD_HAVE_SAFEMATH
@@ -36,12 +71,14 @@ static int lox_emit_event_ex(
     lox_event_t ev;
     int persist_rc;
     int persisted;
+    uint32_t *failure_streak;
 
     if (ctx == NULL || ctx->blackbox == NULL) {
         return LOXGUARD_ERR_NULL;
     }
 
     memset(&ev, 0, sizeof(ev));
+    failure_streak = lox_failure_streak_for_block(ctx->block_name);
     ev.kind = kind;
     ev.block_name = ctx->block_name;
     ev.reason = reason;
@@ -61,32 +98,32 @@ static int lox_emit_event_ex(
     }
 
     if (kind == LOX_EVENT_BLOCK_ENTERED) {
-        lox_adapter_health_set(1);
+        lox_adapter_health_set_for_block(ctx->block_name, 1);
     } else if (kind == LOX_EVENT_BLOCK_OK) {
-        g_failure_streak = 0u;
-        lox_adapter_health_set(0);
+        *failure_streak = 0u;
+        lox_adapter_health_set_for_block(ctx->block_name, 0);
     } else if (kind == LOX_EVENT_BLOCK_COMPLETED) {
         /* Keep previous state; completed can follow both success and failure incidents. */
     } else if (kind == LOX_EVENT_BLOCK_TIMEOUT) {
-        g_failure_streak++;
-        lox_adapter_health_set(2);
+        (*failure_streak)++;
+        lox_adapter_health_set_for_block(ctx->block_name, 2);
     } else if (kind == LOX_EVENT_BLOCK_WRITE_OUT_OF_BOUNDS ||
                kind == LOX_EVENT_BLOCK_ARENA_OVERFLOW ||
                kind == LOX_EVENT_BLOCK_MEMORY_FAULT ||
                kind == LOX_EVENT_BLOCK_PANIC ||
                kind == LOX_EVENT_BLOCK_FAULT ||
                kind == LOX_EVENT_BLOCK_ERROR) {
-        g_failure_streak++;
-        lox_adapter_health_set(3);
+        (*failure_streak)++;
+        lox_adapter_health_set_for_block(ctx->block_name, 3);
     } else if (kind == LOX_EVENT_BLOCK_UNSUPPORTED) {
-        g_failure_streak++;
-        lox_adapter_health_set(4);
+        (*failure_streak)++;
+        lox_adapter_health_set_for_block(ctx->block_name, 4);
     }
 
-    if (g_failure_streak >= 5u) {
-        lox_adapter_health_set(5);
-    } else if (g_failure_streak >= 3u) {
-        lox_adapter_health_set(4);
+    if (*failure_streak >= 5u) {
+        lox_adapter_health_set_for_block(ctx->block_name, 5);
+    } else if (*failure_streak >= 3u) {
+        lox_adapter_health_set_for_block(ctx->block_name, 4);
     }
 
     return LOXGUARD_OK;
@@ -451,7 +488,7 @@ lox_report_t lox_run_checked_parser_demo(
     ctx.last_event_persisted = 0;
     memset(&ctx.last_event, 0, sizeof(ctx.last_event));
     (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_ENTERED, "ENTERED", 0u, 0u, 0u, 0);
-    if (!lox_adapter_recovery_allow_attempt()) {
+    if (!lox_adapter_recovery_allow_attempt_for_block(ctx.block_name)) {
         (void)lox_emit_event_ex(
             &ctx,
             LOX_EVENT_BLOCK_ERROR,
@@ -473,7 +510,7 @@ lox_report_t lox_run_checked_parser_demo(
     } else if (ctx.last_event.kind == LOX_EVENT_NONE) {
         (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_ERROR, "ERROR", 0u, 0u, 0u, 1);
     }
-    lox_adapter_recovery_report_result(rc == LOXGUARD_OK);
+    lox_adapter_recovery_report_result_for_block(ctx.block_name, rc == LOXGUARD_OK);
     end_ticks = lox_adapter_now_ms();
     ctx.duration_ticks = end_ticks - ctx.start_ticks;
     (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_COMPLETED, "COMPLETED", ctx.duration_ticks, 0u, 0u, 0);

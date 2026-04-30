@@ -304,6 +304,7 @@ int test_pipeline_suite(void) {
 #if defined(LOXGUARD_USE_MICRORES) && defined(LOXGUARD_HAVE_MICRORES)
     size_t before_count;
     int saw_oob = 0;
+    lox_event_t block_b_ev;
     lox_adapter_recovery_reset();
     memset(out_fail, 0x22, sizeof(out_fail));
     report = lox_run_checked_parser_demo(in, sizeof(in), out_fail, sizeof(out_fail), scratch_ok, sizeof(scratch_ok), &bb);
@@ -316,6 +317,9 @@ int test_pipeline_suite(void) {
     report = lox_run_checked_parser_demo(in, sizeof(in), out_fail, sizeof(out_fail), scratch_ok, sizeof(scratch_ok), &bb);
     failed |= expect(strcmp(report.reason, "BREAKER_OPEN") == 0, "microres breaker open reason");
     failed |= expect(lox_adapter_recovery_state_get() != 0, "microres recovery state non-closed when breaker open");
+    failed |= expect(lox_adapter_recovery_state_get_for_block("packet_parser") != 0, "block A breaker state open/half-open");
+    failed |= expect(lox_adapter_recovery_allow_attempt_for_block("packet_parser") == 0, "block A is blocked");
+    failed |= expect(lox_adapter_recovery_allow_attempt_for_block("telemetry") == 1, "block B is not blocked by block A");
     failed |= expect(bb.count >= 3u, "breaker-open flow has entered/error/completed");
     failed |= expect(bb.events[0].kind == LOX_EVENT_BLOCK_ENTERED, "breaker-open first event entered");
     failed |= expect(bb.events[1].kind == LOX_EVENT_BLOCK_ERROR, "breaker-open incident event is block error");
@@ -331,12 +335,27 @@ int test_pipeline_suite(void) {
     }
     failed |= expect(saw_oob == 0, "breaker-open flow records no OOB incident");
 
+    memset(&block_b_ev, 0, sizeof(block_b_ev));
+    block_b_ev.kind = LOX_EVENT_BLOCK_ENTERED;
+    block_b_ev.block_name = "telemetry";
+    block_b_ev.reason = "ENTERED";
+    lox_adapter_watchdog_observe_event(&block_b_ev);
+    block_b_ev.kind = LOX_EVENT_BLOCK_OK;
+    block_b_ev.reason = "OK";
+    lox_adapter_watchdog_observe_event(&block_b_ev);
+    lox_adapter_recovery_report_result_for_block("telemetry", 1);
+    lox_adapter_health_set_for_block("telemetry", 0);
+    failed |= expect(lox_adapter_watchdog_state_get_for_block("telemetry") == 0, "block B watchdog OK");
+    failed |= expect(lox_adapter_health_get_for_block("telemetry") == 0, "block B health OK");
+    failed |= expect(lox_adapter_recovery_state_get_for_block("packet_parser") != 0, "block B success does not reset block A breaker");
+
     for (size_t i = 0u; i < 300u; i++) {
         (void)lox_adapter_now_ms();
     }
     report = lox_run_checked_parser_demo(in, sizeof(in), out_ok, sizeof(out_ok), scratch_ok, sizeof(scratch_ok), &bb);
     failed |= expect(report.result == LOX_RESULT_OK, "microres recovery allows success after open timeout");
     failed |= expect(lox_adapter_recovery_state_get() == 0, "microres state closes after success");
+    failed |= expect(lox_adapter_recovery_state_get_for_block("packet_parser") == 0, "block A breaker closes after success");
 #endif
 
     fuzz_state = 0xC0FFEEu;
