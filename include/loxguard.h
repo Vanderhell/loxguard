@@ -17,7 +17,8 @@ typedef enum {
     LOXGUARD_ERR_ALIGN = -5,
     LOXGUARD_ERR_ARENA_FULL = -6,
     LOXGUARD_ERR_TIMEOUT = -7,
-    LOXGUARD_ERR_UNSUPPORTED = -8
+    LOXGUARD_ERR_UNSUPPORTED = -8,
+    LOXGUARD_ERR_MEMORY_FAULT = -9
 } loxguard_status_t;
 
 typedef enum {

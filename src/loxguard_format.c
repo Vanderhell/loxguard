@@ -8,6 +8,73 @@ static const char *k_csv_schema_header = "kind,block,reason,index,limit,aux";
 int lox_report_parse_kv_ex(const char *line, lox_report_snapshot_t *out_snapshot);
 int lox_event_parse_csv_line_ex(const char *line, lox_event_snapshot_t *out_snapshot);
 
+static int lox_hex_value(char c) {
+    if (c >= '0' && c <= '9') return (int)(c - '0');
+    if (c >= 'a' && c <= 'f') return (int)(c - 'a') + 10;
+    if (c >= 'A' && c <= 'F') return (int)(c - 'A') + 10;
+    return -1;
+}
+
+static void lox_encode_kv_value(char *dst, size_t dst_len, const char *src) {
+    size_t i;
+    size_t pos;
+    static const char k_hex[] = "0123456789ABCDEF";
+
+    if (dst == NULL || dst_len == 0u) {
+        return;
+    }
+
+    if (src == NULL) {
+        dst[0] = '\0';
+        return;
+    }
+
+    pos = 0u;
+    for (i = 0u; src[i] != '\0' && pos + 1u < dst_len; i++) {
+        unsigned char c = (unsigned char)src[i];
+        if (c == ',' || c == '\n' || c == '\r' || c == '=' || c == '%') {
+            if (pos + 3u >= dst_len) {
+                break;
+            }
+            dst[pos++] = '%';
+            dst[pos++] = k_hex[(c >> 4) & 0xFu];
+            dst[pos++] = k_hex[c & 0xFu];
+        } else {
+            dst[pos++] = (char)c;
+        }
+    }
+    dst[pos] = '\0';
+}
+
+static void lox_decode_kv_value(char *dst, size_t dst_len, const char *src) {
+    size_t pos;
+    size_t i;
+
+    if (dst == NULL || dst_len == 0u) {
+        return;
+    }
+    if (src == NULL) {
+        dst[0] = '\0';
+        return;
+    }
+
+    pos = 0u;
+    i = 0u;
+    while (src[i] != '\0' && pos + 1u < dst_len) {
+        if (src[i] == '%' && src[i + 1u] != '\0' && src[i + 2u] != '\0') {
+            int hi = lox_hex_value(src[i + 1u]);
+            int lo = lox_hex_value(src[i + 2u]);
+            if (hi >= 0 && lo >= 0) {
+                dst[pos++] = (char)((hi << 4) | lo);
+                i += 3u;
+                continue;
+            }
+        }
+        dst[pos++] = src[i++];
+    }
+    dst[pos] = '\0';
+}
+
 static int lox_event_kind_is_valid(int kind) {
     return kind >= (int)LOX_EVENT_NONE && kind <= (int)LOX_EVENT_BLOCK_FAULT;
 }
@@ -18,6 +85,10 @@ static int lox_action_is_valid(unsigned int action) {
 
 size_t lox_event_format_csv(const lox_event_t *event, char *out, size_t out_len) {
     int n;
+    char block_buf[64];
+    char reason_buf[64];
+    const char *block;
+    const char *reason;
 
     if (out == NULL || out_len == 0u) {
         return 0u;
@@ -26,13 +97,17 @@ size_t lox_event_format_csv(const lox_event_t *event, char *out, size_t out_len)
     if (event == NULL) {
         n = snprintf(out, out_len, "kind=0,block=none,reason=none,index=0,limit=0,aux=0");
     } else {
+        block = event->block_name ? event->block_name : "none";
+        reason = event->reason ? event->reason : "none";
+        lox_encode_kv_value(block_buf, sizeof(block_buf), block);
+        lox_encode_kv_value(reason_buf, sizeof(reason_buf), reason);
         n = snprintf(
             out,
             out_len,
             "kind=%d,block=%s,reason=%s,index=%zu,limit=%zu,aux=%u",
             (int)event->kind,
-            event->block_name ? event->block_name : "none",
-            event->reason ? event->reason : "none",
+            block_buf,
+            reason_buf,
             event->index,
             event->limit,
             event->aux_code
@@ -203,6 +278,13 @@ int lox_event_parse_csv_line_ex(const char *line, lox_event_snapshot_t *out_snap
     char reason[64];
     size_t index;
     size_t limit;
+    const char *p;
+    const char *block_start;
+    const char *reason_start;
+    const char *index_start;
+    const char *limit_start;
+    const char *aux_start;
+    const char *comma;
     char tail;
     int n;
 
@@ -210,18 +292,61 @@ int lox_event_parse_csv_line_ex(const char *line, lox_event_snapshot_t *out_snap
         return 0;
     }
 
-    n = sscanf(
-        line,
-        "kind=%d,block=%63[^,],reason=%63[^,],index=%zu,limit=%zu,aux=%u%c",
-        &kind,
-        block,
-        reason,
-        &index,
-        &limit,
-        &aux,
-        &tail
-    );
-    if (n != 6) {
+    p = line;
+    n = sscanf(p, "kind=%d%c", &kind, &tail);
+    if (n < 1) {
+        return 0;
+    }
+
+    block_start = strstr(p, ",block=");
+    reason_start = strstr(p, ",reason=");
+    index_start = strstr(p, ",index=");
+    limit_start = strstr(p, ",limit=");
+    aux_start = strstr(p, ",aux=");
+    if (block_start == NULL || reason_start == NULL || index_start == NULL || limit_start == NULL || aux_start == NULL) {
+        return 0;
+    }
+    if (!(block_start < reason_start && reason_start < index_start && index_start < limit_start && limit_start < aux_start)) {
+        return 0;
+    }
+
+    block_start += 7; /* ",block=" */
+    comma = strchr(block_start, ',');
+    if (comma == NULL || comma != reason_start) {
+        return 0;
+    }
+    {
+        size_t copy = (size_t)(reason_start - block_start);
+        if (copy >= sizeof(block)) {
+            copy = sizeof(block) - 1u;
+        }
+        memcpy(block, block_start, copy);
+        block[copy] = '\0';
+    }
+    if (block[0] == '\0') {
+        return 0;
+    }
+
+    reason_start += 8; /* ",reason=" */
+    comma = strchr(reason_start, ',');
+    if (comma == NULL || comma != index_start) {
+        return 0;
+    }
+    {
+        size_t copy = (size_t)(index_start - reason_start);
+        if (copy >= sizeof(reason)) {
+            copy = sizeof(reason) - 1u;
+        }
+        memcpy(reason, reason_start, copy);
+        reason[copy] = '\0';
+    }
+    if (reason[0] == '\0') {
+        return 0;
+    }
+
+    /* Parse numeric tail strictly: accept only full match, no trailing garbage/whitespace. */
+    n = sscanf(index_start, ",index=%zu,limit=%zu,aux=%u%c", &index, &limit, &aux, &tail);
+    if (n != 3) {
         return 0;
     }
     if (!lox_event_kind_is_valid(kind)) {
@@ -232,6 +357,15 @@ int lox_event_parse_csv_line_ex(const char *line, lox_event_snapshot_t *out_snap
     memcpy(out_snapshot->reason, reason, sizeof(out_snapshot->reason));
     out_snapshot->block_name[sizeof(out_snapshot->block_name) - 1u] = '\0';
     out_snapshot->reason[sizeof(out_snapshot->reason) - 1u] = '\0';
+    {
+        char decoded[64];
+        lox_decode_kv_value(decoded, sizeof(decoded), out_snapshot->block_name);
+        memcpy(out_snapshot->block_name, decoded, sizeof(out_snapshot->block_name));
+        out_snapshot->block_name[sizeof(out_snapshot->block_name) - 1u] = '\0';
+        lox_decode_kv_value(decoded, sizeof(decoded), out_snapshot->reason);
+        memcpy(out_snapshot->reason, decoded, sizeof(out_snapshot->reason));
+        out_snapshot->reason[sizeof(out_snapshot->reason) - 1u] = '\0';
+    }
 
     out_snapshot->event.kind = (lox_event_kind_t)kind;
     out_snapshot->event.block_name = out_snapshot->block_name;
@@ -294,6 +428,8 @@ size_t lox_report_format_kv(const lox_report_t *report, const lox_event_t *event
     const char *block;
     const char *reason;
     unsigned int kind;
+    char block_buf[64];
+    char reason_buf[64];
 
     if (out == NULL || out_len == 0u) {
         return 0u;
@@ -304,13 +440,15 @@ size_t lox_report_format_kv(const lox_report_t *report, const lox_event_t *event
     } else {
         block = (report->last_block == NULL) ? "none" : report->last_block;
         reason = (report->reason == NULL) ? "NONE" : report->reason;
+        lox_encode_kv_value(block_buf, sizeof(block_buf), block);
+        lox_encode_kv_value(reason_buf, sizeof(reason_buf), reason);
         kind = (event == NULL) ? 0u : (unsigned int)event->kind;
         n = snprintf(
             out,
             out_len,
             "block=%s,reason=%s,result=%u,action=%u,event_kind=%u,duration_ticks=%u,event_persisted=%u",
-            block,
-            reason,
+            block_buf,
+            reason_buf,
             (unsigned int)report->result,
             (unsigned int)report->action,
             kind,
@@ -351,6 +489,10 @@ int lox_report_parse_kv_ex(const char *line, lox_report_snapshot_t *out_snapshot
     unsigned int kind;
     unsigned int duration_ticks;
     unsigned int persisted;
+    const char *block_start;
+    const char *reason_start;
+    const char *result_start;
+    const char *comma;
     char tail;
     int n;
 
@@ -358,19 +500,42 @@ int lox_report_parse_kv_ex(const char *line, lox_report_snapshot_t *out_snapshot
         return 0;
     }
 
-    n = sscanf(
-        line,
-        "block=%63[^,],reason=%63[^,],result=%u,action=%u,event_kind=%u,duration_ticks=%u,event_persisted=%u%c",
-        block,
-        reason,
-        &result,
-        &action,
-        &kind,
-        &duration_ticks,
-        &persisted,
-        &tail
-    );
-    if (n != 7) {
+    block_start = line;
+    if (strncmp(block_start, "block=", 6u) != 0) {
+        return 0;
+    }
+    block_start += 6u;
+    reason_start = strstr(block_start, ",reason=");
+    result_start = strstr(block_start, ",result=");
+    if (reason_start == NULL || result_start == NULL || !(reason_start < result_start)) {
+        return 0;
+    }
+
+    comma = reason_start;
+    {
+        size_t copy = (size_t)(comma - block_start);
+        if (copy >= sizeof(block)) {
+            copy = sizeof(block) - 1u;
+        }
+        memcpy(block, block_start, copy);
+        block[copy] = '\0';
+    }
+
+    reason_start += 8u; /* ",reason=" */
+    comma = result_start;
+    {
+        size_t copy = (size_t)(comma - reason_start);
+        if (copy >= sizeof(reason)) {
+            copy = sizeof(reason) - 1u;
+        }
+        memcpy(reason, reason_start, copy);
+        reason[copy] = '\0';
+    }
+
+    /* Parse numeric tail strictly: accept only full match, no trailing garbage/whitespace. */
+    n = sscanf(result_start, ",result=%u,action=%u,event_kind=%u,duration_ticks=%u,event_persisted=%u%c",
+               &result, &action, &kind, &duration_ticks, &persisted, &tail);
+    if (n != 5) {
         return 0;
     }
     if (!lox_action_is_valid(action) || !lox_event_kind_is_valid((int)kind) || result > (unsigned int)LOX_RESULT_UNSUPPORTED || persisted > 1u) {
@@ -381,6 +546,15 @@ int lox_report_parse_kv_ex(const char *line, lox_report_snapshot_t *out_snapshot
     memcpy(out_snapshot->reason, reason, sizeof(out_snapshot->reason));
     out_snapshot->block_name[sizeof(out_snapshot->block_name) - 1u] = '\0';
     out_snapshot->reason[sizeof(out_snapshot->reason) - 1u] = '\0';
+    {
+        char decoded[64];
+        lox_decode_kv_value(decoded, sizeof(decoded), out_snapshot->block_name);
+        memcpy(out_snapshot->block_name, decoded, sizeof(out_snapshot->block_name));
+        out_snapshot->block_name[sizeof(out_snapshot->block_name) - 1u] = '\0';
+        lox_decode_kv_value(decoded, sizeof(decoded), out_snapshot->reason);
+        memcpy(out_snapshot->reason, decoded, sizeof(out_snapshot->reason));
+        out_snapshot->reason[sizeof(out_snapshot->reason) - 1u] = '\0';
+    }
 
     out_snapshot->report.last_failed_block = out_snapshot->block_name;
     out_snapshot->report.last_block = out_snapshot->block_name;

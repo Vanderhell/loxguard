@@ -265,10 +265,15 @@ target_link_libraries(loxguard_backend_demo PRIVATE loxguard)
 enable_testing()
 add_test(NAME loxguard_test COMMAND $<TARGET_FILE:loxguard_test>)
 add_test(NAME loxguard_backend_demo COMMAND $<TARGET_FILE:loxguard_backend_demo>)
-add_test(
-    NAME loxguard_static_check
-    COMMAND powershell -ExecutionPolicy Bypass -File ${CMAKE_SOURCE_DIR}/tools/guard_static_check.ps1 -Path ${CMAKE_SOURCE_DIR}/src
-)
+find_program(POWERSHELL_EXE NAMES pwsh powershell)
+if(POWERSHELL_EXE)
+    add_test(
+        NAME loxguard_static_check
+        COMMAND ${POWERSHELL_EXE} -ExecutionPolicy Bypass -File ${CMAKE_SOURCE_DIR}/tools/guard_static_check.ps1 -Path ${CMAKE_SOURCE_DIR}/src
+    )
+else()
+    message(STATUS "PowerShell not found; skipping loxguard_static_check tests.")
+endif()
 
 if(LOXGUARD_USE_MICROTEST)
     if(EXISTS "${LOX_ECOSYSTEM_DIR}/microtest/include/mtest.h")
@@ -279,7 +284,9 @@ if(LOXGUARD_USE_MICROTEST)
         message(WARNING "LOXGUARD_USE_MICROTEST=ON but microtest companion library is not available.")
     endif()
 endif()
-add_test(
-    NAME loxguard_static_check_guarded
-    COMMAND powershell -ExecutionPolicy Bypass -File ${CMAKE_SOURCE_DIR}/tools/guard_static_check.ps1 -Path ${CMAKE_SOURCE_DIR}/examples/guarded
-)
+if(POWERSHELL_EXE)
+    add_test(
+        NAME loxguard_static_check_guarded
+        COMMAND ${POWERSHELL_EXE} -ExecutionPolicy Bypass -File ${CMAKE_SOURCE_DIR}/tools/guard_static_check.ps1 -Path ${CMAKE_SOURCE_DIR}/examples/guarded
+    )
+endif()

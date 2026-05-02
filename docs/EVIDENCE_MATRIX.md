@@ -1,7 +1,11 @@
 # Evidence Matrix
 
-Date: 2026-04-30  
-Scope: host MVP stabilization and claim traceability
+Date: 2026-05-01  
+Scope: host MVP stabilization, hardware bench validation, and claim traceability
+
+Raw host logs (when checked in) live under:
+
+`artifacts/evidence/host/`
 
 Build configs:
 - `default`: `cmake -S . -B build` + `cmake --build build --config Debug` + `ctest --test-dir build -C Debug --output-on-failure`
@@ -16,6 +20,10 @@ Build configs:
 Test mapping note:
 - `tests/test_pipeline.c` is a broad scenario suite (`test_pipeline_suite`) with labeled assertions (`expect(..., "label")`); claim mapping references these assertion labels.
 
+CI note:
+- GitHub Actions CI verifies `default` and `no-ecosystem` only.
+- Companion-enabled configs are validated locally when companion sources are present under `ecosystem/`.
+
 | README claim | Test evidence | Build config | Status |
 |---|---|---|---|
 | Guard Block OK path is implemented | `test_pipeline_suite`: `success result is OK`, `success action NONE` | default, nvlog | VERIFIED |
@@ -27,7 +35,7 @@ Test mapping note:
 | Arena overflow/overflow-arithmetic guards | `test_arena_suite`: `arena huge size overflow returns NULL`, corrupted `used` state rejection | default, nvlog | VERIFIED |
 | Success lifecycle events (`ENTERED -> OK -> COMPLETED`) | `test_pipeline_suite`: `success entered event`, `success ok event`, `success completed event` | default, nvlog | VERIFIED |
 | Failure lifecycle events remain structured | `test_pipeline_suite`: `first event is ENTERED`, `incident event kind is OOB write`, `last event is COMPLETED` | default, nvlog | VERIFIED |
-| Policy decision pipeline | `test_pipeline_suite`: `policy reset-block for non-failure kind`, `policy action is DROP_INPUT` | default, nvlog | VERIFIED |
+| Policy decision pipeline | `test_pipeline_suite`: `policy none for non-failure kind`, `policy action is DROP_INPUT` | default, nvlog | VERIFIED |
 | Blackbox/report incident evidence | `test_pipeline_suite`: blackbox rollover/ownership checks, report field checks | default, nvlog | VERIFIED |
 | Report export/import parser robustness | `test_pipeline_suite`: `report parse line`, `report parse ex line`, invalid action/event/persisted rejections | default, nvlog | VERIFIED |
 | CSV event export/import parser robustness | `test_pipeline_suite`: format/parse round-trip, mixed valid/invalid import, trailing-garbage rejection | default, nvlog | VERIFIED |
@@ -50,3 +58,103 @@ Test mapping note:
 | RTOS backend production behavior | Stub-only tests (`test_ports_suite`, `test_pipeline_suite`) | default, nvlog | NOT VERIFIED |
 | MPU backend production behavior | Stub-only tests (`test_ports_suite`, `test_pipeline_suite`) | default, nvlog | NOT VERIFIED |
 | LLVM/plugin instrumentation mode | no runtime tests in host MVP | default, nvlog | NOT VERIFIED |
+
+## Hardware bench evidence (ESP32-S3) — external notes
+
+This section is a human-maintained bench summary. Raw logs/artifacts are not included in the repo by default.
+
+To make these claims independently reviewable, add artifacts under:
+
+`artifacts/evidence/esp32/`
+
+Until raw artifacts are checked in, treat all ESP32-S3 bullet points in this section as **NOT VERIFIED from this repo**.
+
+- Date: 2026-05-01
+- Board run evidence:
+  - `[OK] SD mounted card=7580MB`
+  - smoke and stress phases completed
+  - per-case pass summary:
+    - checked_ok 500/500
+    - checked_oob 500/500
+    - arena_overflow 500/500
+    - timeout_demo 250/250
+    - panic_demo 250/250
+    - fault_demo 250/250
+    - rtos_host 250/250
+    - rtos_stub 250/250
+    - mpu_host 250/250
+    - mpu_stub 250/250
+  - total summary: `pass=3260/3260 fail=0`
+- Status impact:
+  - confirms guarded pipeline behavior on real target runtime for bench scenarios
+  - does not yet replace full production RTOS/MPU backend verification
+
+## MCU RAM/flash footprint (ESP32-S3 Arduino build) — external notes
+
+- Date: 2026-05-01
+- Target: `esp32:esp32:esp32s3` (ESP32S3 Dev Module)
+- Compile command:
+  - `arduino-cli compile --fqbn esp32:esp32:esp32s3 examples/bench/loxguard_bench`
+- Reported sizes:
+  - Flash: `Sketch uses 440988 bytes (33%)` of `1310720` bytes.
+  - RAM: `Global variables use 27368 bytes (8%)`, leaving `300312` bytes (max `327680` bytes).
+- Status impact:
+  - provides real MCU toolchain footprint numbers for the bench firmware (default build).
+  - provides a baseline for comparing companion-heavy (LCD) vs minimal builds.
+
+### Minimal build (LCD disabled)
+
+- Compile command:
+  - `arduino-cli compile --fqbn esp32:esp32:esp32s3 --build-property compiler.cpp.extra_flags='-DLOX_BENCH_LCD_ENABLE=0' --build-property compiler.c.extra_flags='-DLOX_BENCH_LCD_ENABLE=0' examples/bench/loxguard_bench`
+- Reported sizes:
+  - Flash: `Sketch uses 378247 bytes (28%)` of `1310720` bytes.
+  - RAM: `Global variables use 23604 bytes (7%)`, leaving `304076` bytes (max `327680` bytes).
+
+## SD log tail dump (on-device evidence assist) — external notes
+
+- Date: 2026-05-01
+- Firmware supports serial command `d` to print the tail of `/loxguard_bench.log` from SD (`[sd] --- log tail ---` ... `[sd] --- end ---`).
+- Verified behavior:
+  - tail contains expected `=== loxguard bench boot ===` separators and scenario lines after boot.
+  - enables collecting persistence evidence without removing the SD card.
+
+## Release footprint snapshots (host toolchain artifacts) — external notes
+
+- Date: 2026-05-01
+- Build commands:
+  - `cmake -S . -B build_rel`
+  - `cmake --build .\build_rel --config Release`
+  - `ctest --test-dir .\build_rel -C Release --output-on-failure`
+  - `cmake -S . -B build_nvlog_rel -DLOXGUARD_USE_NVLOG=ON`
+  - `cmake --build .\build_nvlog_rel --config Release`
+  - `ctest --test-dir .\build_nvlog_rel -C Release --output-on-failure`
+- Sizes:
+  - default `build_rel/Release/loxguard.lib`: `117848` bytes
+  - default `build_rel/Release/loxguard_demo.exe`: `23552` bytes
+  - nvlog `build_nvlog_rel/Release/loxguard.lib`: `143900` bytes
+  - nvlog `build_nvlog_rel/Release/loxguard_demo.exe`: `26112` bytes
+- Status impact:
+  - baseline size delta from enabling nvlog profile is measured
+  - MCU flash/ram consumption must still be collected from target toolchain output
+
+## Power-loss and restart consistency evidence (executed) — external notes
+
+- Date: 2026-05-01
+- Procedure:
+  - started soak via serial `s`,
+  - cut power abruptly during active soak after checkpoints,
+  - rebooted board and verified full bench startup run,
+  - repeated for at least 5 cycles.
+- Observed checkpoints before forced cuts (examples): `2000`, `3000`, `5000`, `9000`, `10000`.
+- Post-restart behavior:
+  - board consistently mounted SD and resumed normal benchmark startup,
+  - each post-restart benchmark run completed with `pass=3260/3260 fail=0`.
+- Log integrity evidence from `/loxguard_bench.log`:
+  - valid `soak_checkpoint` lines persisted (e.g. loops `7000`..`10000`),
+  - `=== loxguard bench boot ===` separators present after reboot,
+  - provided tail shows coherent lines without truncation artifacts.
+- Evidence extraction method:
+  - serial command `d` prints an SD log tail window to serial, confirming last `soak_checkpoint` before reboot (examples observed via `d`: `loops=3000`, `loops=5000`, `loops=7000`).
+- Status impact:
+  - host/bench persistence path demonstrates restart consistency under abrupt power cuts on tested hardware setup.
+  - this validates current MVP persistence behavior for the exercised path; production flash-specific guarantees remain platform-dependent.

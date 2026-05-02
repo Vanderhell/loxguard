@@ -10,6 +10,11 @@ It lets embedded C developers wrap risky code, such as parsers, protocol handler
 
 The current `v0.1.0-alpha` focuses on host-tested checked span/arena primitives, Guard Block lifecycle events, policy decisions, reports, and optional `nvlog` host persistence.
 
+Non-goals and claims (important):
+- This project does **not** claim memory safety for arbitrary C code.
+- This project does **not** provide safety certification, compliance guarantees, or “secure by default” claims.
+- Checked behavior exists only where explicit contracts/spans/arenas are used.
+
 ## Status
 
 `v0.1.0-alpha` is a host-tested MVP.
@@ -119,10 +124,9 @@ ctest --test-dir build_noeco -C Debug --output-on-failure
 
 GitHub Actions workflow: `.github/workflows/ci.yml`
 
-- `default`: configure/build/test default path
-- `nvlog`: configure/build/test with `LOXGUARD_USE_NVLOG=ON`
-- `noecosystem`: verifies default build/test with `ecosystem/` absent
-- `release`: on `v*` tags, re-verifies default/nvlog/no-ecosystem before publishing release assets
+- `default`: configure/build/test (Windows, Linux, macOS)
+- `noecosystem`: verifies default build/test with `ecosystem/` absent (Windows, Linux, macOS)
+- `release`: on `v*` tags, re-verifies default + no-ecosystem before publishing release assets
 
 ## Automated Releases
 
@@ -131,7 +135,6 @@ Workflow: `.github/workflows/release.yml`
 - runs automatically on pushed tags matching `v*`
 - verifies before publish:
   - default configure/build/test
-  - nvlog-enabled configure/build/test
   - no-ecosystem configure/build/test
 - creates release assets:
   - `loxguard-<tag>.zip`
@@ -150,4 +153,6 @@ Workflow: `.github/workflows/release.yml`
 - `CHANGELOG.md`
 - `docs/RELEASE_NOTES_v0.1.0-alpha.md`
 - `docs/EVIDENCE_MATRIX.md`
+- `docs/FORMAT_EXPORTS.md`
+- `docs/API_STABILITY.md`
 - `docs/COMPONENT_INTEGRATION_STATUS.md`

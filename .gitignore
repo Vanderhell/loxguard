@@ -15,6 +15,11 @@ build_microsh/
 build_microtest/
 build_loxdb/
 build_nvlog_loxdb/
+build_rel/
+build_nvlog_rel/
+build_verify/
+build_gcc/
+build_clang/
 *.obj
 *.lib
 *.exp
@@ -36,7 +41,9 @@ Testing/
 
 # Test outputs
 *.log
+review.zip
 
 # Local companion ecosystem checkouts (not tracked in this repo)
 ecosystem/*
 !ecosystem/.gitkeep
+loxguard_pro_future_ideas.md

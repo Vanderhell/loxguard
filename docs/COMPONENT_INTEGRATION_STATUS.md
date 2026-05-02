@@ -24,7 +24,8 @@ Legacy folder-name fallback supported: `third_party/`
 
 ## Notes
 
-- Companion libraries were verified via `git ls-remote` and cloned into the local ecosystem folder.
+- Companion libraries are optional; loxguard core remains host-buildable without them.
+- CI does not fetch companion repositories; companion-enabled builds are validated locally when sources exist under `ecosystem/`.
 - This pass keeps host MVP freeze discipline: no unrelated feature work.
 - Directly integrated in this pass:
   - `microlog` (structured logging adapter path)

@@ -1,0 +1,8 @@
+Host evidence generated on: 2026-05-02
+
+Commands:
+  cmake -S . -B build_verify
+  cmake --build build_verify --config Debug
+  ctest --test-dir build_verify -C Debug --output-on-failure
+
+See: windows_build_verify_ctest.txt

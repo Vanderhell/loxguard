@@ -27,7 +27,7 @@ jobs:
 
       - name: Test default
         shell: pwsh
-        run: ctest --test-dir build -C Debug --output-on-failure
+        run: ctest --test-dir build -C Debug --output-on-failure | Tee-Object -FilePath build/ctest_windows_default.txt
 
       - name: Ensure ecosystem is absent for no-ecosystem verification
         shell: pwsh
@@ -46,27 +46,7 @@ jobs:
 
       - name: Test no-ecosystem default
         shell: pwsh
-        run: ctest --test-dir build_noeco -C Debug --output-on-failure
-
-      - name: Fetch companion libraries for all-companions safe set
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path ecosystem -Force | Out-Null
-          foreach ($repo in @("nvlog","microtimer","microwdt","microres","microbus","microsh","microtest")) {
-            git clone --depth 1 "https://github.com/Vanderhell/$repo" "ecosystem/$repo"
-          }
-
-      - name: Configure all-companions safe set
-        shell: pwsh
-        run: cmake -S . -B build_all_companions -DLOXGUARD_USE_NVLOG=ON -DLOXGUARD_USE_MICROTIMER=ON -DLOXGUARD_USE_MICROWDT=ON -DLOXGUARD_USE_MICRORES=ON -DLOXGUARD_USE_MICROBUS=ON -DLOXGUARD_USE_MICROSH=ON -DLOXGUARD_USE_MICROTEST=ON
-
-      - name: Build all-companions safe set
-        shell: pwsh
-        run: cmake --build build_all_companions --config Debug
-
-      - name: Test all-companions safe set
-        shell: pwsh
-        run: ctest --test-dir build_all_companions -C Debug --output-on-failure
+        run: ctest --test-dir build_noeco -C Debug --output-on-failure | Tee-Object -FilePath build_noeco/ctest_windows_noeco.txt
 
       - name: Prepare release files
         id: prep
@@ -93,8 +73,7 @@ jobs:
               "",
               "- Verified in workflow:",
               "  - default configure/build/test",
-              "  - no-ecosystem configure/build/test",
-              "  - all-companions safe-set configure/build/test"
+              "  - no-ecosystem configure/build/test"
             ) | Set-Content -Path $fallback
             "notes_file=$fallback" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           }
@@ -109,6 +88,8 @@ jobs:
           path: |
             ${{ steps.prep.outputs.zip_file }}
             ${{ steps.prep.outputs.sha_file }}
+            build/ctest_windows_default.txt
+            build_noeco/ctest_windows_noeco.txt
 
       - name: Create GitHub Release and upload assets
         shell: pwsh

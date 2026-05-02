@@ -37,7 +37,11 @@ int main(void) {
     (void)lox_blackbox_export_csv_buffer_ex(&bb, 1u, 1, dump, sizeof(dump));
     printf("[csv-buffer-header]\n%s\n", dump);
     printf("[schema-compatible] %d\n", lox_csv_schema_is_compatible(dump));
-    (void)lox_report_format_kv(&rtos_report, &bb.events[bb.count - 1u], report_line, sizeof(report_line));
+    if (bb.count >= 2u) {
+        (void)lox_report_format_kv(&rtos_report, &bb.events[bb.count - 2u], report_line, sizeof(report_line));
+    } else {
+        (void)lox_report_format_kv(&rtos_report, &bb.events[bb.count - 1u], report_line, sizeof(report_line));
+    }
     printf("[report-kv] %s\n", report_line);
     printf("[report] block=%s reason=%s action=%s\n",
            rtos_report.last_failed_block ? rtos_report.last_failed_block : "none",
@@ -54,7 +58,11 @@ int main(void) {
     (void)lox_blackbox_export_csv_buffer_ex(&bb, 2u, 1, dump, sizeof(dump));
     printf("[csv-buffer-header]\n%s\n", dump);
     printf("[schema-compatible] %d\n", lox_csv_schema_is_compatible(dump));
-    (void)lox_report_format_kv(&mpu_report, &bb.events[bb.count - 1u], report_line, sizeof(report_line));
+    if (bb.count >= 2u) {
+        (void)lox_report_format_kv(&mpu_report, &bb.events[bb.count - 2u], report_line, sizeof(report_line));
+    } else {
+        (void)lox_report_format_kv(&mpu_report, &bb.events[bb.count - 1u], report_line, sizeof(report_line));
+    }
     printf("[report-kv] %s\n", report_line);
     printf("[report] block=%s reason=%s action=%s\n",
            mpu_report.last_failed_block ? mpu_report.last_failed_block : "none",

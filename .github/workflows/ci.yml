@@ -8,56 +8,20 @@ on:
 
 jobs:
   build-test:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
         include:
           - name: default
             build_dir: build
             cmake_flags: ""
-            companions: ""
             no_ecosystem: false
           - name: no-ecosystem
             build_dir: build_noeco
             cmake_flags: ""
-            companions: ""
             no_ecosystem: true
-          - name: nvlog
-            build_dir: build_nvlog
-            cmake_flags: "-DLOXGUARD_USE_NVLOG=ON"
-            companions: "nvlog"
-            no_ecosystem: false
-          - name: microres
-            build_dir: build_mres
-            cmake_flags: "-DLOXGUARD_USE_MICRORES=ON"
-            companions: "microres"
-            no_ecosystem: false
-          - name: microtimer-microwdt
-            build_dir: build_mtimer_mwdt
-            cmake_flags: "-DLOXGUARD_USE_MICROTIMER=ON -DLOXGUARD_USE_MICROWDT=ON"
-            companions: "microtimer microwdt"
-            no_ecosystem: false
-          - name: microbus
-            build_dir: build_microbus
-            cmake_flags: "-DLOXGUARD_USE_MICROBUS=ON"
-            companions: "microbus"
-            no_ecosystem: false
-          - name: microsh
-            build_dir: build_microsh
-            cmake_flags: "-DLOXGUARD_USE_MICROSH=ON"
-            companions: "microsh"
-            no_ecosystem: false
-          - name: microtest
-            build_dir: build_microtest
-            cmake_flags: "-DLOXGUARD_USE_MICROTEST=ON"
-            companions: "microtest"
-            no_ecosystem: false
-          - name: all-companions-safe
-            build_dir: build_all_companions
-            cmake_flags: "-DLOXGUARD_USE_NVLOG=ON -DLOXGUARD_USE_MICROTIMER=ON -DLOXGUARD_USE_MICROWDT=ON -DLOXGUARD_USE_MICRORES=ON -DLOXGUARD_USE_MICROBUS=ON -DLOXGUARD_USE_MICROSH=ON -DLOXGUARD_USE_MICROTEST=ON"
-            companions: "nvlog microtimer microwdt microres microbus microsh microtest"
-            no_ecosystem: false
 
     steps:
       - name: Checkout
@@ -71,15 +35,6 @@ jobs:
             Remove-Item -Recurse -Force ecosystem
           }
 
-      - name: Fetch required companion libraries
-        if: ${{ !matrix.no_ecosystem && matrix.companions != '' }}
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path ecosystem -Force | Out-Null
-          foreach ($repo in "${{ matrix.companions }}".Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)) {
-            git clone --depth 1 "https://github.com/Vanderhell/$repo" "ecosystem/$repo"
-          }
-
       - name: Configure (${{ matrix.name }})
         shell: pwsh
         run: cmake -S . -B ${{ matrix.build_dir }} ${{ matrix.cmake_flags }}
@@ -90,4 +45,13 @@ jobs:
 
       - name: Test (${{ matrix.name }})
         shell: pwsh
-        run: ctest --test-dir ${{ matrix.build_dir }} -C Debug --output-on-failure
+        run: |
+          ctest --test-dir ${{ matrix.build_dir }} -C Debug --output-on-failure | Tee-Object -FilePath "${{ matrix.build_dir }}/ctest_${{ matrix.os }}_${{ matrix.name }}.txt"
+
+      - name: Upload test logs (${{ matrix.name }})
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-logs-${{ matrix.os }}-${{ matrix.name }}
+          path: |
+            ${{ matrix.build_dir }}/ctest_${{ matrix.os }}_${{ matrix.name }}.txt

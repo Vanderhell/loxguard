@@ -1,5 +1,7 @@
 #include "loxguard_ports.h"
 
+#include <stddef.h>
+
 #define LOX_PORT_FLAG_RTOS (1u << 0)
 #define LOX_PORT_FLAG_MPU  (1u << 1)
 

@@ -98,7 +98,69 @@ int test_pipeline_suite(void) {
 
     memset(&policy_probe, 0, sizeof(policy_probe));
     policy_probe.kind = LOX_EVENT_NONE;
-    failed |= expect(lox_policy_decide(&policy_probe) == LOX_ACTION_RESET_BLOCK, "policy reset-block for non-failure kind");
+    failed |= expect(lox_policy_decide(&policy_probe) == LOX_ACTION_NONE, "policy none for non-failure kind");
+
+    {
+        lox_event_t bad_event;
+        lox_report_t bad_report;
+        lox_report_snapshot_t parsed_snapshot_local;
+        lox_event_snapshot_t parsed_event_local;
+
+        memset(&bad_event, 0, sizeof(bad_event));
+        bad_event.kind = LOX_EVENT_BLOCK_ERROR;
+        bad_event.block_name = "bad,block\nname=eq";
+        bad_event.reason = "bad,reason\rline=eq";
+        (void)lox_event_format_csv(&bad_event, line, sizeof(line));
+        failed |= expect(strstr(line, "block=bad%2Cblock%0Aname%3Deq") != NULL, "csv format encodes block");
+        failed |= expect(strstr(line, "reason=bad%2Creason%0Dline%3Deq") != NULL, "csv format encodes reason");
+
+        memset(&bad_report, 0, sizeof(bad_report));
+        bad_report.last_block = "bad,block\nname=eq";
+        bad_report.reason = "bad,reason\rline=eq";
+        bad_report.result = LOX_RESULT_ERROR;
+        bad_report.action = LOX_ACTION_NONE;
+        bad_report.duration_ticks = 1u;
+        bad_report.event_persisted = 0;
+        (void)lox_report_format_kv(&bad_report, &bad_event, report_line, sizeof(report_line));
+        failed |= expect(strstr(report_line, "block=bad%2Cblock%0Aname%3Deq") != NULL, "report kv encodes block");
+        failed |= expect(strstr(report_line, "reason=bad%2Creason%0Dline%3Deq") != NULL, "report kv encodes reason");
+        failed |= expect(lox_report_parse_kv_ex(report_line, &parsed_snapshot_local) == 1, "report kv parse accepts encoded values");
+        failed |= expect(strcmp(parsed_snapshot_local.report.last_block, "bad,block\nname=eq") == 0, "report kv decodes block");
+        failed |= expect(strcmp(parsed_snapshot_local.report.reason, "bad,reason\rline=eq") == 0, "report kv decodes reason");
+
+        /* Percent roundtrip: '%' must be escaped as %25. */
+        bad_event.reason = "load=50%,bad";
+        (void)lox_event_format_csv(&bad_event, line, sizeof(line));
+        failed |= expect(strstr(line, "reason=load%3D50%25%2Cbad") != NULL, "csv encodes percent");
+        failed |= expect(lox_event_parse_csv_line_ex(line, &parsed_event_local) == 1, "csv parse accepts percent-encoded reason");
+        failed |= expect(strcmp(parsed_event_local.event.reason, "load=50%,bad") == 0, "csv decodes percent");
+
+        /* Newline roundtrip (via report kv decode path). */
+        bad_report.reason = "line1\nline2";
+        (void)lox_report_format_kv(&bad_report, &bad_event, report_line, sizeof(report_line));
+        failed |= expect(strstr(report_line, "reason=line1%0Aline2") != NULL, "report kv encodes newline");
+        failed |= expect(lox_report_parse_kv_ex(report_line, &parsed_snapshot_local) == 1, "report kv parse accepts newline-encoded reason");
+        failed |= expect(strcmp(parsed_snapshot_local.report.reason, "line1\nline2") == 0, "report kv decodes newline");
+
+        /* Malformed percent inputs must be safe (no crash, valid string). */
+        failed |= expect(lox_report_parse_kv_ex("block=x,reason=%2,result=3,action=1,event_kind=3,duration_ticks=1,event_persisted=1", &parsed_snapshot_local) == 1, "report kv parse accepts malformed %2");
+        failed |= expect(strcmp(parsed_snapshot_local.report.reason, "%2") == 0, "report kv leaves malformed %2 intact");
+        failed |= expect(lox_report_parse_kv_ex("block=x,reason=%XX,result=3,action=1,event_kind=3,duration_ticks=1,event_persisted=1", &parsed_snapshot_local) == 1, "report kv parse accepts malformed %XX");
+        failed |= expect(strcmp(parsed_snapshot_local.report.reason, "%XX") == 0, "report kv leaves malformed %XX intact");
+        failed |= expect(lox_report_parse_kv_ex("block=x,reason=abc%,result=3,action=1,event_kind=3,duration_ticks=1,event_persisted=1", &parsed_snapshot_local) == 1, "report kv parse accepts trailing %");
+        failed |= expect(strcmp(parsed_snapshot_local.report.reason, "abc%") == 0, "report kv leaves trailing % intact");
+
+        /* Truncation behavior: decode is bounded and always null-terminated. */
+        {
+            char long_encoded[256];
+            (void)snprintf(long_encoded, sizeof(long_encoded),
+                           "block=%s,reason=%s,result=3,action=1,event_kind=3,duration_ticks=1,event_persisted=1",
+                           "B",
+                           "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA%2CZZ");
+            failed |= expect(lox_report_parse_kv_ex(long_encoded, &parsed_snapshot_local) == 1, "report kv parse accepts long encoded reason");
+            failed |= expect(strlen(parsed_snapshot_local.report.reason) == 63u, "report kv truncates decoded reason to 63");
+        }
+    }
 
     lox_blackbox_init(&ownership_bb);
     strcpy(mutable_block, "temp_block");
@@ -255,6 +317,8 @@ int test_pipeline_suite(void) {
     failed |= expect(strcmp(report.reason, "RTOS_TIMEOUT") == 0, "rtos demo reason");
     failed |= expect(report.result == LOX_RESULT_TIMEOUT, "rtos demo result timeout");
     failed |= expect(bb.events[incident_idx].kind == LOX_EVENT_BLOCK_TIMEOUT, "rtos demo incident kind");
+    failed |= expect(lox_adapter_health_get() != 0, "health state not-OK after rtos timeout");
+    failed |= expect(lox_adapter_watchdog_state_get() != 0, "watchdog state non-OK on rtos timeout mapping");
 
     (void)lox_blackbox_export_csv_buffer(&bb, 3u, dump, sizeof(dump));
     failed |= expect(strstr(dump, "reason=RTOS_TIMEOUT") != NULL, "csv buffer contains RTOS_TIMEOUT");
@@ -511,6 +575,8 @@ int test_pipeline_suite(void) {
     failed |= expect(strcmp(report.reason, "MPU_FAULT") == 0, "mpu demo reason");
     failed |= expect(report.result == LOX_RESULT_MEMORY_FAULT, "mpu result memory fault");
     failed |= expect(bb.events[incident_idx].kind == LOX_EVENT_BLOCK_MEMORY_FAULT, "mpu demo incident kind");
+    failed |= expect(lox_adapter_health_get() != 0, "health state not-OK after mpu fault");
+    failed |= expect(lox_adapter_watchdog_state_get() != 0, "watchdog state non-OK on mpu fault mapping");
     failed |= expect(lox_port_set_active(LOX_PORT_HOST) == 0, "restore host port after mpu");
 
     lox_set_recovery_callback(NULL, NULL);

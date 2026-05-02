@@ -347,7 +347,7 @@ lox_action_t lox_policy_decide(const lox_event_t *event) {
         event->kind == LOX_EVENT_BLOCK_ERROR) {
         return LOX_ACTION_DROP_INPUT;
     }
-    return LOX_ACTION_RESET_BLOCK;
+    return LOX_ACTION_NONE;
 }
 
 void lox_guard_emit_bounds(lox_guard_ctx_t *ctx, size_t index, size_t limit) {
@@ -592,17 +592,8 @@ lox_report_t lox_run_rtos_timeout_demo(lox_blackbox_t *blackbox, const char *tas
         return lox_finalize_report(&ctx, rc);
     }
 
-    rc = lox_rtos_report_timeout(blackbox, ctx.block_name, tick_budget);
-    if (rc == LOXGUARD_OK && blackbox->count > 0u) {
-        int persist_rc;
-        ctx.last_event = blackbox->events[blackbox->count - 1u];
-        (void)lox_adapter_log_event(&ctx.last_event);
-        persist_rc = lox_adapter_persist_event(&ctx.last_event);
-        ctx.last_event_persisted = (persist_rc == LOXGUARD_OK) ? 1 : 0;
-        rc = LOXGUARD_ERR_TIMEOUT;
-    } else if (rc != LOXGUARD_OK && ctx.last_event.kind == LOX_EVENT_NONE) {
-        (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_ERROR, "ERROR", 0u, 0u, 0u, 1);
-    }
+    (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_TIMEOUT, "RTOS_TIMEOUT", (size_t)tick_budget, 0u, 0u, 1);
+    rc = LOXGUARD_ERR_TIMEOUT;
     end_ticks = lox_adapter_now_ms();
     ctx.duration_ticks = end_ticks - ctx.start_ticks;
     (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_COMPLETED, "COMPLETED", ctx.duration_ticks, 0u, 0u, 0);
@@ -611,7 +602,6 @@ lox_report_t lox_run_rtos_timeout_demo(lox_blackbox_t *blackbox, const char *tas
 
 lox_report_t lox_run_mpu_fault_demo(lox_blackbox_t *blackbox, const char *block_name, uint32_t fault_addr, uint32_t cfsr, uint32_t hfsr) {
     lox_guard_ctx_t ctx;
-    lox_mpu_fault_ctx_t fault;
     int rc;
     lox_port_info_t port;
     uint32_t end_ticks;
@@ -632,21 +622,16 @@ lox_report_t lox_run_mpu_fault_demo(lox_blackbox_t *blackbox, const char *block_
         return lox_finalize_report(&ctx, rc);
     }
 
-    fault.fault_addr = fault_addr;
-    fault.cfsr = cfsr;
-    fault.hfsr = hfsr;
-
-    rc = lox_mpu_report_fault(blackbox, ctx.block_name, &fault);
-    if (rc == LOXGUARD_OK && blackbox->count > 0u) {
-        int persist_rc;
-        ctx.last_event = blackbox->events[blackbox->count - 1u];
-        (void)lox_adapter_log_event(&ctx.last_event);
-        persist_rc = lox_adapter_persist_event(&ctx.last_event);
-        ctx.last_event_persisted = (persist_rc == LOXGUARD_OK) ? 1 : 0;
-        rc = LOXGUARD_ERR_TIMEOUT;
-    } else if (rc != LOXGUARD_OK && ctx.last_event.kind == LOX_EVENT_NONE) {
-        (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_ERROR, "ERROR", 0u, 0u, 0u, 1);
-    }
+    (void)lox_emit_event_ex(
+        &ctx,
+        LOX_EVENT_BLOCK_MEMORY_FAULT,
+        "MPU_FAULT",
+        (size_t)fault_addr,
+        (size_t)cfsr,
+        hfsr,
+        1
+    );
+    rc = LOXGUARD_ERR_MEMORY_FAULT;
     end_ticks = lox_adapter_now_ms();
     ctx.duration_ticks = end_ticks - ctx.start_ticks;
     (void)lox_emit_event_ex(&ctx, LOX_EVENT_BLOCK_COMPLETED, "COMPLETED", ctx.duration_ticks, 0u, 0u, 0);
