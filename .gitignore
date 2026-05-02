@@ -42,6 +42,7 @@ Testing/
 # Test outputs
 *.log
 review.zip
+examples/**/.theia/
 
 # Local companion ecosystem checkouts (not tracked in this repo)
 ecosystem/*
