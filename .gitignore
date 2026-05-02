@@ -20,6 +20,8 @@ build_nvlog_rel/
 build_verify/
 build_gcc/
 build_clang/
+build_noeco_verify/
+build_noeco_gcc/
 *.obj
 *.lib
 *.exp

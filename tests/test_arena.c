@@ -20,10 +20,16 @@ int test_arena_suite(void) {
     failed |= expect((addr % 16u) == 0u, "arena allocation alignment");
 
     failed |= expect(lox_arena_alloc(&arena, 64u, 4u) == NULL, "arena overflow returns NULL");
-    failed |= expect(lox_arena_used(&arena) == 24u, "arena used unchanged after overflow");
+    {
+        size_t expected_used = (size_t)((const uint8_t *)p2 - mem) + 8u;
+        failed |= expect(lox_arena_used(&arena) == expected_used, "arena used unchanged after overflow");
+    }
     p1 = lox_arena_alloc(&arena, 8u, 4u);
     failed |= expect(p1 != NULL, "arena remains usable after overflow failure");
-    failed |= expect(lox_arena_used(&arena) == 32u, "arena used advances after post-failure alloc");
+    {
+        size_t expected_used = (size_t)((const uint8_t *)p1 - mem) + 8u;
+        failed |= expect(lox_arena_used(&arena) == expected_used, "arena used advances after post-failure alloc");
+    }
     failed |= expect(lox_arena_alloc(&arena, (size_t)-1, 4u) == NULL, "arena huge size overflow returns NULL");
     failed |= expect(lox_arena_alloc(&arena, 1u, 3u) == NULL, "arena invalid align returns NULL");
     p1 = lox_arena_alloc(&arena, 0u, 4u);
