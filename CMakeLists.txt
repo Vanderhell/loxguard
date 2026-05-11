@@ -238,6 +238,8 @@ add_executable(loxguard_test
     tests/test_span.c
     tests/test_arena.c
     tests/test_pipeline.c
+    tests/test_pipeline_legacy.c
+    tests/test_loxguard_run.c
     tests/test_rtos_bridge.c
     tests/test_guarded_module.c
     tests/test_ports.c

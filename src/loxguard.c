@@ -488,8 +488,6 @@ lox_report_t loxguard_run(const loxguard_block_cfg_t *cfg, loxguard_fn_t fn, voi
         return r;
     }
 
-    lox_blackbox_init(cfg->blackbox);
-
     guard.input = cfg->input;
     guard.output = cfg->output;
     if (cfg->scratch != NULL && cfg->scratch_len > 0u) {

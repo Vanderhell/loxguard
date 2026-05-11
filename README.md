@@ -56,6 +56,7 @@ static int my_block(lox_guard_ctx_t *g, void *user_ctx) {
 int main(void) {
     lox_blackbox_t bb;
     loxguard_block_cfg_t cfg;
+    lox_blackbox_init(&bb);
     memset(&cfg, 0, sizeof(cfg));
     cfg.name = "my_block";
     cfg.timeout_ms = 20;

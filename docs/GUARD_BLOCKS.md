@@ -48,6 +48,7 @@ void on_packet(uint8_t *buf, size_t len)
     lox_blackbox_t bb;
     uint8_t out[256];
     uint8_t scratch[256];
+    lox_blackbox_init(&bb);
 
     loxguard_block_cfg_t cfg = {
         .name = "packet_parser",

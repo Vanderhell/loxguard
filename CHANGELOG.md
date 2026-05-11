@@ -76,3 +76,8 @@ All notable changes to this project are documented in this file.
 - `ecosystem/` is canonical companion module layout.
 - Legacy folder-name fallback `third_party/` remains supported for migration.
 - This tag is host-tested MVP, not production embedded backend readiness.
+
+## Unreleased
+
+### Changed
+- `loxguard_run(...)` no longer implicitly resets the caller-provided blackbox. Call `lox_blackbox_init()` before first use (or to clear accumulated evidence).
