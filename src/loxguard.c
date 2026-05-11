@@ -464,6 +464,105 @@ static int lox_emit_unsupported(lox_guard_ctx_t *ctx, const char *reason) {
     return LOXGUARD_ERR_UNSUPPORTED;
 }
 
+lox_report_t loxguard_run(const loxguard_block_cfg_t *cfg, loxguard_fn_t fn, void *user_ctx) {
+    lox_guard_ctx_t guard;
+    lox_arena_t arena;
+    int have_arena = 0;
+    int rc;
+    uint32_t end_ticks;
+    uint32_t *failure_streak;
+
+    memset(&guard, 0, sizeof(guard));
+
+    if (cfg == NULL || cfg->blackbox == NULL || fn == NULL) {
+        /* Best-effort report without a blackbox. */
+        lox_report_t r;
+        memset(&r, 0, sizeof(r));
+        r.last_block = NULL;
+        r.last_failed_block = NULL;
+        r.reason = "NULL";
+        r.result = LOX_RESULT_ERROR;
+        r.action = LOX_ACTION_NONE;
+        r.duration_ticks = 0u;
+        r.event_persisted = 0;
+        return r;
+    }
+
+    lox_blackbox_init(cfg->blackbox);
+
+    guard.input = cfg->input;
+    guard.output = cfg->output;
+    if (cfg->scratch != NULL && cfg->scratch_len > 0u) {
+        lox_arena_init(&arena, cfg->scratch, cfg->scratch_len);
+        guard.scratch = &arena;
+        have_arena = 1;
+    }
+    guard.block_name = (cfg->name == NULL || cfg->name[0] == '\0') ? "guard_block" : cfg->name;
+    guard.blackbox = cfg->blackbox;
+    guard.start_ticks = lox_adapter_now_ms();
+    guard.duration_ticks = 0u;
+    guard.last_event_persisted = 0;
+    memset(&guard.last_event, 0, sizeof(guard.last_event));
+
+    (void)lox_emit_event_ex(&guard, LOX_EVENT_BLOCK_ENTERED, "ENTERED", 0u, 0u, 0u, 0);
+
+    failure_streak = lox_failure_streak_for_block(guard.block_name);
+    if (cfg->max_failures > 0u && *failure_streak >= cfg->max_failures) {
+        (void)lox_emit_event_ex(
+            &guard,
+            LOX_EVENT_BLOCK_ERROR,
+            "QUARANTINED",
+            (size_t)(*failure_streak),
+            (size_t)cfg->max_failures,
+            0u,
+            1
+        );
+        end_ticks = lox_adapter_now_ms();
+        guard.duration_ticks = end_ticks - guard.start_ticks;
+        (void)lox_emit_event_ex(&guard, LOX_EVENT_BLOCK_COMPLETED, "COMPLETED", guard.duration_ticks, 0u, 0u, 0);
+        return lox_finalize_report(&guard, LOXGUARD_ERR_UNSUPPORTED);
+    }
+
+    if (!lox_adapter_recovery_allow_attempt_for_block(guard.block_name)) {
+        (void)lox_emit_event_ex(
+            &guard,
+            LOX_EVENT_BLOCK_ERROR,
+            "BREAKER_OPEN",
+            0u,
+            0u,
+            (uint32_t)lox_adapter_recovery_state_get_for_block(guard.block_name),
+            1
+        );
+        end_ticks = lox_adapter_now_ms();
+        guard.duration_ticks = end_ticks - guard.start_ticks;
+        (void)lox_emit_event_ex(&guard, LOX_EVENT_BLOCK_COMPLETED, "COMPLETED", guard.duration_ticks, 0u, 0u, 0);
+        return lox_finalize_report(&guard, LOXGUARD_ERR_UNSUPPORTED);
+    }
+
+    rc = fn(&guard, user_ctx);
+
+    end_ticks = lox_adapter_now_ms();
+    guard.duration_ticks = end_ticks - guard.start_ticks;
+
+    if (cfg->timeout_ms > 0u && guard.duration_ticks > cfg->timeout_ms) {
+        (void)lox_emit_event_ex(&guard, LOX_EVENT_BLOCK_TIMEOUT, "TIMEOUT", guard.duration_ticks, (size_t)cfg->timeout_ms, 0u, 1);
+        rc = LOXGUARD_ERR_TIMEOUT;
+    } else if (rc == LOXGUARD_OK) {
+        (void)lox_emit_event_ex(&guard, LOX_EVENT_BLOCK_OK, "OK", 0u, 0u, 0u, 1);
+    } else if (guard.last_event.kind == LOX_EVENT_NONE) {
+        (void)lox_emit_event_ex(&guard, LOX_EVENT_BLOCK_ERROR, "ERROR", 0u, 0u, 0u, 1);
+    }
+
+    lox_adapter_recovery_report_result_for_block(guard.block_name, rc == LOXGUARD_OK);
+
+    if (!have_arena) {
+        guard.scratch = NULL;
+    }
+
+    (void)lox_emit_event_ex(&guard, LOX_EVENT_BLOCK_COMPLETED, "COMPLETED", guard.duration_ticks, 0u, 0u, 0);
+    return lox_finalize_report(&guard, rc);
+}
+
 lox_report_t lox_run_checked_parser_demo(
     const uint8_t *in, size_t in_len,
     uint8_t *out, size_t out_len,

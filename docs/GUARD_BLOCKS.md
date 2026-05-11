@@ -26,39 +26,49 @@ Examples:
 Primary v1 API:
 
 ```c
-int loxguard_run(const loxguard_block_cfg_t *cfg,
-                 loxguard_fn_t fn,
-                 void *ctx);
+lox_report_t loxguard_run(const loxguard_block_cfg_t *cfg,
+                          loxguard_fn_t fn,
+                          void *user_ctx);
 ```
 
 Example:
 
 ```c
-static int parse_block(void *ctx)
+static int parse_block(lox_guard_ctx_t *g, void *ctx)
 {
     parser_ctx_t *p = (parser_ctx_t *)ctx;
+    /* Example: safe write through checked output span. */
+    (void)g;
     return parse_packet(p->buf, p->len, &p->out);
 }
 
 void on_packet(uint8_t *buf, size_t len)
 {
     parser_ctx_t ctx = { .buf = buf, .len = len };
+    lox_blackbox_t bb;
+    uint8_t out[256];
+    uint8_t scratch[256];
 
     loxguard_block_cfg_t cfg = {
         .name = "packet_parser",
         .timeout_ms = 20,
         .criticality = LOXGUARD_OPTIONAL,
-        .max_failures = 3
+        .max_failures = 3,
+        .blackbox = &bb,
+        .input = lox_span_readonly(buf, len),
+        .output = lox_span_writable(out, sizeof(out)),
+        .scratch = scratch,
+        .scratch_len = sizeof(scratch)
     };
 
-    int rc = loxguard_run(&cfg, parse_block, &ctx);
+    lox_report_t r = loxguard_run(&cfg, parse_block, &ctx);
 
-    if (rc != LOXGUARD_OK) {
+    if (r.result != LOX_RESULT_OK) {
         drop_packet();
         return;
     }
 
-    handle_packet(&ctx.out);
+    handle_packet(out);
 }
 ```
 

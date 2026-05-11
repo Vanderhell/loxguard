@@ -17,23 +17,35 @@ int test_shell_suite(void) {
     report.reason = "OK";
     report.event_persisted = 0;
 
-    if (lox_shell_exec_command("loxguard status", &bb, &report, out, sizeof(out)) == LOXGUARD_OK) {
-        failed |= expect(strstr(out, "status") != NULL, "shell status command output");
-        failed |= expect(strstr(out, "result=") != NULL, "shell status includes result");
-    } else {
-        failed |= expect(1, "shell disabled fallback accepted");
+    {
+        int rc = lox_shell_exec_command("loxguard status", &bb, &report, out, sizeof(out));
+        if (rc == LOXGUARD_OK) {
+            failed |= expect(strstr(out, "status") != NULL, "shell status command output");
+            failed |= expect(strstr(out, "result=") != NULL, "shell status includes result");
+        } else {
+            failed |= expect(rc == LOXGUARD_ERR_UNSUPPORTED, "shell status returns unsupported when disabled");
+            failed |= expect(out[0] == '\0', "shell status disabled leaves output empty");
+        }
     }
 
-    if (lox_shell_exec_command("loxguard blackbox", &bb, &report, out, sizeof(out)) == LOXGUARD_OK) {
-        failed |= expect(strstr(out, "blackbox") != NULL, "shell blackbox command output");
-    } else {
-        failed |= expect(1, "shell blackbox fallback accepted");
+    {
+        int rc = lox_shell_exec_command("loxguard blackbox", &bb, &report, out, sizeof(out));
+        if (rc == LOXGUARD_OK) {
+            failed |= expect(strstr(out, "blackbox") != NULL, "shell blackbox command output");
+        } else {
+            failed |= expect(rc == LOXGUARD_ERR_UNSUPPORTED, "shell blackbox returns unsupported when disabled");
+            failed |= expect(out[0] == '\0', "shell blackbox disabled leaves output empty");
+        }
     }
 
-    if (lox_shell_exec_command("loxguard events", &bb, &report, out, sizeof(out)) == LOXGUARD_OK) {
-        failed |= expect(strstr(out, "events") != NULL, "shell events command output");
-    } else {
-        failed |= expect(1, "shell events fallback accepted");
+    {
+        int rc = lox_shell_exec_command("loxguard events", &bb, &report, out, sizeof(out));
+        if (rc == LOXGUARD_OK) {
+            failed |= expect(strstr(out, "events") != NULL, "shell events command output");
+        } else {
+            failed |= expect(rc == LOXGUARD_ERR_UNSUPPORTED, "shell events returns unsupported when disabled");
+            failed |= expect(out[0] == '\0', "shell events disabled leaves output empty");
+        }
     }
 
     return failed;

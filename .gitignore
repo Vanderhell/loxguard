@@ -46,6 +46,13 @@ Testing/
 review.zip
 examples/**/.theia/
 
+# AI/dev scaffolding (keep out of public tree)
+AGENTS.md
+prompts/
+review/
+archive_notes/
+templates/
+
 # Local companion ecosystem checkouts (not tracked in this repo)
 ecosystem/*
 !ecosystem/.gitkeep

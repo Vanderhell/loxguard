@@ -5,6 +5,7 @@
 int main(void) {
     int failed = 0;
 
+    expect_reset();
     failed |= test_span_suite();
     failed |= test_arena_suite();
     failed |= test_pipeline_suite();
@@ -13,6 +14,7 @@ int main(void) {
     failed |= test_ports_suite();
     failed |= test_shell_suite();
 
+    expect_print_summary();
     if (failed) {
         return 1;
     }

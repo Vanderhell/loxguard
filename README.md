@@ -41,6 +41,33 @@ Not verified yet:
 
 ## Quick Example
 
+Generic Guard Block wrapper:
+
+```c
+#include "loxguard.h"
+#include <string.h>
+
+static int my_block(lox_guard_ctx_t *g, void *user_ctx) {
+    (void)g;
+    (void)user_ctx;
+    return LOXGUARD_OK;
+}
+
+int main(void) {
+    lox_blackbox_t bb;
+    loxguard_block_cfg_t cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.name = "my_block";
+    cfg.timeout_ms = 20;
+    cfg.criticality = LOXGUARD_OPTIONAL;
+    cfg.max_failures = 3;
+    cfg.blackbox = &bb;
+    return (loxguard_run(&cfg, my_block, NULL).result == LOX_RESULT_OK) ? 0 : 1;
+}
+```
+
+Checked parser demo:
+
 ```c
 #include "loxguard.h"
 

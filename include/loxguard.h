@@ -8,6 +8,10 @@
 extern "C" {
 #endif
 
+#define LOXGUARD_VERSION_MAJOR 0
+#define LOXGUARD_VERSION_MINOR 1
+#define LOXGUARD_VERSION_PATCH 0
+
 typedef enum {
     LOXGUARD_OK = 0,
     LOXGUARD_ERR_BOUNDS = -1,
@@ -77,10 +81,18 @@ typedef struct {
     uint32_t aux_code;
 } lox_event_t;
 
+#ifndef LOX_BLACKBOX_MAX_EVENTS
+#define LOX_BLACKBOX_MAX_EVENTS 16u
+#endif
+
+#ifndef LOX_BLACKBOX_STR_MAX
+#define LOX_BLACKBOX_STR_MAX 64u
+#endif
+
 typedef struct {
-    lox_event_t events[16];
-    char block_names[16][64];
-    char reasons[16][64];
+    lox_event_t events[LOX_BLACKBOX_MAX_EVENTS];
+    char block_names[LOX_BLACKBOX_MAX_EVENTS][LOX_BLACKBOX_STR_MAX];
+    char reasons[LOX_BLACKBOX_MAX_EVENTS][LOX_BLACKBOX_STR_MAX];
     size_t count;
 } lox_blackbox_t;
 
@@ -107,6 +119,25 @@ typedef struct {
 } lox_guard_ctx_t;
 
 typedef void (*lox_recovery_cb_t)(const lox_event_t *event, lox_action_t action, void *user_ctx);
+
+typedef enum {
+    LOXGUARD_OPTIONAL = 0,
+    LOXGUARD_CRITICAL = 1
+} loxguard_criticality_t;
+
+typedef struct {
+    const char *name;
+    uint32_t timeout_ms;
+    loxguard_criticality_t criticality;
+    uint32_t max_failures;
+    lox_span_t input;
+    lox_span_t output;
+    void *scratch;
+    size_t scratch_len;
+    lox_blackbox_t *blackbox;
+} loxguard_block_cfg_t;
+
+typedef int (*loxguard_fn_t)(lox_guard_ctx_t *guard, void *user_ctx);
 
 lox_span_t lox_span_readonly(const void *ptr, size_t len);
 lox_span_t lox_span_writable(void *ptr, size_t len);
@@ -135,6 +166,8 @@ void lox_guard_emit_bounds(lox_guard_ctx_t *ctx, size_t index, size_t limit);
 int lox_checked_output_write_u8(lox_guard_ctx_t *ctx, size_t index, uint8_t value);
 
 void lox_set_recovery_callback(lox_recovery_cb_t cb, void *user_ctx);
+
+lox_report_t loxguard_run(const loxguard_block_cfg_t *cfg, loxguard_fn_t fn, void *user_ctx);
 
 lox_report_t lox_run_checked_parser_demo(
     const uint8_t *in, size_t in_len,
