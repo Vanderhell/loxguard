@@ -1,47 +1,29 @@
 # loxguard
 
-**Guard Blocks for embedded C.**
-
-Wrap risky C code. Check its memory. Recover with evidence.
-
-loxguard is a host-tested C99 MVP for Guard Blocks and Checked Guard Blocks.
-
-It lets embedded C developers wrap risky code, such as parsers, protocol handlers, or optional modules, in supervised execution boundaries. Failures become structured events, policy decisions, and local blackbox evidence.
-
-The current `v0.1.0-alpha` focuses on host-tested checked span/arena primitives, Guard Block lifecycle events, policy decisions, reports, and optional `nvlog` host persistence.
-
-Non-goals and claims (important):
-- This project does **not** claim memory safety for arbitrary C code.
-- This project does **not** provide safety certification, compliance guarantees, or “secure by default” claims.
-- Checked behavior exists only where explicit contracts/spans/arenas are used.
+C99 library for running user code in a supervised “guard block” that produces structured events and a small local evidence record.
 
 ## Status
 
-`v0.1.0-alpha` is a host-tested MVP.
+- Current stage: `v0.1.0-alpha` (host-tested; no certification claims)
+- Verified by repository evidence: host builds + unit tests (see `docs/EVIDENCE_MATRIX.md`)
+- Embedded/RTOS/MPU behavior: interface stubs and demos exist, but hardware behavior is not verified by artifacts in this repository
 
-Verified:
-- Guard Block OK/failure lifecycle
-- Checked span/arena primitives
-- Policy + blackbox/report pipeline
-- CSV/report import/export
-- Optional nvlog host persistence
-- Optional microtimer/microwdt integration paths
-- Optional microres recovery/circuit-breaker adapter path
-- Host panic/fault evidence paths (`BLOCK_PANIC`, `BLOCK_FAULT`)
-- Default, nvlog-enabled, and no-ecosystem builds
+## What it does
 
-Not verified yet:
-- Real embedded hardware behavior
-- Production RTOS backend
-- Production MPU backend
-- LLVM/compiler instrumentation
-- Production flash/EEPROM/FRAM persistence
-- Companion `microassert` runtime integration (module not present in current workspace)
-- Companion `panicdump` runtime integration (module not present in current workspace)
+- Runs a function inside a Guard Block wrapper (`loxguard_run(...)`)
+- Provides checked span/arena helpers for bounds-checked access used by the demos/tests
+- Captures lifecycle and failure events into a small in-memory “blackbox” (`lox_blackbox_t`)
+- Formats and parses CSV/report exports (`docs/FORMAT_EXPORTS.md`)
 
-## Quick Example
+## What it does not do
 
-Generic Guard Block wrapper:
+- It does not make arbitrary C code memory-safe.
+- It does not provide RTOS/MPU “containment” in this alpha; those paths are not verified by repository artifacts.
+- It does not claim safety/security certification or compliance.
+
+## Quick example
+
+Guard Block wrapper:
 
 ```c
 #include "loxguard.h"
@@ -67,7 +49,7 @@ int main(void) {
 }
 ```
 
-Checked parser demo:
+Checked demo (host):
 
 ```c
 #include "loxguard.h"
@@ -90,7 +72,7 @@ int main(void) {
 }
 ```
 
-## Build and Test
+## Build and test
 
 Default:
 
@@ -100,47 +82,7 @@ cmake --build build --config Debug
 ctest --test-dir build -C Debug --output-on-failure
 ```
 
-nvlog-enabled:
-
-```powershell
-cmake -S . -B build_nvlog -DLOXGUARD_USE_NVLOG=ON
-cmake --build build_nvlog --config Debug
-ctest --test-dir build_nvlog -C Debug --output-on-failure
-```
-
-microtimer-enabled:
-
-```powershell
-cmake -S . -B build_mtimer -DLOXGUARD_USE_MICROTIMER=ON
-cmake --build build_mtimer --config Debug
-ctest --test-dir build_mtimer -C Debug --output-on-failure
-```
-
-microwdt-enabled:
-
-```powershell
-cmake -S . -B build_mwdt -DLOXGUARD_USE_MICROWDT=ON
-cmake --build build_mwdt --config Debug
-ctest --test-dir build_mwdt -C Debug --output-on-failure
-```
-
-microtimer+microwdt:
-
-```powershell
-cmake -S . -B build_mtimer_mwdt -DLOXGUARD_USE_MICROTIMER=ON -DLOXGUARD_USE_MICROWDT=ON
-cmake --build build_mtimer_mwdt --config Debug
-ctest --test-dir build_mtimer_mwdt -C Debug --output-on-failure
-```
-
-microres-enabled:
-
-```powershell
-cmake -S . -B build_mres -DLOXGUARD_USE_MICRORES=ON
-cmake --build build_mres --config Debug
-ctest --test-dir build_mres -C Debug --output-on-failure
-```
-
-no-ecosystem default:
+No-ecosystem verification (CI deletes `ecosystem/`):
 
 ```powershell
 cmake -S . -B build_noeco
@@ -148,39 +90,46 @@ cmake --build build_noeco --config Debug
 ctest --test-dir build_noeco -C Debug --output-on-failure
 ```
 
-## CI Matrix
+Sanitizers (CI, Ubuntu/clang only):
 
-GitHub Actions workflow: `.github/workflows/ci.yml`
+```bash
+cmake -S . -B build_san \
+  -DCMAKE_C_COMPILER=clang \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_C_FLAGS="-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined" \
+  -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+cmake --build build_san -j
+ctest --test-dir build_san --output-on-failure
+```
 
-- `default`: configure/build/test (Windows, Linux, macOS)
-- `noecosystem`: verifies default build/test with `ecosystem/` absent (Windows, Linux, macOS)
-- `release`: on `v*` tags, re-verifies default + no-ecosystem before publishing release assets
+## Integration
 
-## Automated Releases
+See `docs/INTEGRATION.md` for:
+- using `add_subdirectory(...)`
+- install + `find_package(...)`
+- source-copy integration
+- optional ecosystem integrations (`LOXGUARD_USE_*`)
 
-Workflow: `.github/workflows/release.yml`
+## Tested platforms (repository evidence)
 
-- runs automatically on pushed tags matching `v*`
-- verifies before publish:
-  - default configure/build/test
-  - no-ecosystem configure/build/test
-- creates release assets:
-  - `loxguard-<tag>.zip`
-  - `loxguard-<tag>.zip.sha256`
-- creates GitHub Release automatically and uploads both assets
+- CI runs build+test on: Windows, Linux, macOS
+- CI runs a clang ASan/UBSan job on Ubuntu
 
-## Companion Libraries
+## Evidence
 
-- Canonical companion path: `ecosystem/`
-- Companion modules are optional ecosystem integrations.
-- Current active integration: `safemath`, `microlog`, partial `microhealth`, optional host `nvlog`, optional `microtimer`, optional `microwdt`, optional `microres`.
-- Watchdog late/starved semantics in this wave are represented through adapter watchdog state, not standalone `lox_event_t` kinds.
+- Evidence matrix: `docs/EVIDENCE_MATRIX.md`
+- Raw host logs (when checked in): `artifacts/evidence/host/`
+- Hardware evidence directory (currently placeholders): `artifacts/evidence/esp32/`
 
-## Links
+## Documentation
 
-- `CHANGELOG.md`
-- `docs/RELEASE_NOTES_v0.1.0-alpha.md`
-- `docs/EVIDENCE_MATRIX.md`
-- `docs/FORMAT_EXPORTS.md`
-- `docs/API_STABILITY.md`
-- `docs/COMPONENT_INTEGRATION_STATUS.md`
+- Public API: `docs/API.md`
+- Architecture: `docs/ARCHITECTURE.md`
+- Integration: `docs/INTEGRATION.md`
+- Limitations: `docs/LIMITATIONS.md`
+- Release notes: `docs/RELEASE_NOTES_v0.1.0-alpha.md`
+- Design notes (non-current): `docs/design/`
+
+## License
+
+See `LICENSE`.

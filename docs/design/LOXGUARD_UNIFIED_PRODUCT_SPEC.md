@@ -44,7 +44,7 @@ Examples:
 
 - packet parser,
 - protocol handler,
-- customer logic,
+- application logic,
 - optional telemetry,
 - config parser,
 - OTA metadata parser,

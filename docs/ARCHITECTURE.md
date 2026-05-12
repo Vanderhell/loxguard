@@ -1,4 +1,4 @@
-# loxguard Architecture v3
+# Architecture
 
 ## High-level model
 
@@ -61,11 +61,11 @@ Optional backends: RTOS / MPU / loxdb
 
 ### RTOS backend
 
-Maps Guard Blocks to supervised tasks/jobs.
+In `v0.1.0-alpha`, the RTOS-facing API is a stub/demo interface for host testing and documentation.
 
 ### MPU backend
 
-Maps Guard Blocks to hardware-contained regions where supported.
+In `v0.1.0-alpha`, the MPU-facing API is a stub/demo interface for host testing and documentation.
 
 ## Key rule
 

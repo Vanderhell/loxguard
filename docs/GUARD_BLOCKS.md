@@ -14,7 +14,7 @@ Examples:
 - binary protocol decoding,
 - config loading,
 - OTA metadata parsing,
-- customer logic,
+- application logic,
 - optional telemetry,
 - network frame handling,
 - non-critical analytics,

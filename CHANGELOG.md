@@ -4,36 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
-### Added
-- Optional `microtimer` integration switch:
-  - `LOXGUARD_USE_MICROTIMER`
-- Optional `microwdt` integration switch:
-  - `LOXGUARD_USE_MICROWDT`
-- Optional `microres` integration switch:
-  - `LOXGUARD_USE_MICRORES`
-- Adapter-level watchdog observation hooks:
-  - `lox_adapter_watchdog_observe_event(...)`
-  - `lox_adapter_watchdog_state_get()`
-  - `lox_adapter_watchdog_reset()`
-- Adapter-level recovery/circuit-breaker hooks:
-  - `lox_adapter_recovery_allow_attempt()`
-  - `lox_adapter_recovery_report_result(...)`
-  - `lox_adapter_recovery_state_get()`
-  - `lox_adapter_recovery_reset()`
-
-### Changed
-- Guard event emission path now forwards events to watchdog observation mapping.
-- Guard execution path now supports optional `microres` breaker-assisted blocking (`BREAKER_OPEN`) on repeated failures.
-- Evidence/docs updated for microtimer/microwdt integration matrix and verification configs.
-- Added host-safe controlled panic/fault evidence flows (`BLOCK_PANIC`, `BLOCK_FAULT`) with pipeline/policy/blackbox/report coverage.
-- Added optional companion switches for future integration:
-  - `LOXGUARD_USE_MICROASSERT`
-  - `LOXGUARD_USE_PANICDUMP`
-- Hardened runtime invariant tests:
-  - span null+zero-length convention checks,
-  - arena post-failure allocation-state stability checks,
-  - deterministic mixed-path stress loop covering success/failure/persistence-routing invariants.
-- Added technical pre-HW validation checklist in `TODO.md`.
+- Documentation and repository hygiene updates.
 
 ## v0.1.0-alpha (2026-04-30)
 
@@ -50,34 +21,16 @@ All notable changes to this project are documented in this file.
 - Report model with result/action/duration/persisted fields.
 - CSV event export/import and report KV export/import parsing utilities.
 
-### Companion ecosystem integrations
+### Optional integrations (requires external sources)
 - `safemath` integration for overflow-safe arithmetic in checked paths (when available).
 - `microlog` integration in adapter logging path (when available).
 - Partial `microhealth` mapping integration (adapter-level health state mapping).
-- Optional host `nvlog` persistence integration:
-  - enabled with `LOXGUARD_USE_NVLOG=ON`,
-  - host RAM/file backend wiring via nvlog posix backend.
+- Optional host `nvlog` persistence adapter path (`LOXGUARD_USE_NVLOG=ON`, when available).
+- Optional `microtimer` / `microwdt` / `microres` adapter paths (when available).
 
-### Build/test verification
-- Verified default configuration:
-  - `cmake -S . -B build`
-  - `cmake --build build --config Debug`
-  - `ctest --test-dir build -C Debug --output-on-failure`
-- Verified nvlog-enabled configuration:
-  - `cmake -S . -B build_nvlog -DLOXGUARD_USE_NVLOG=ON`
-  - `cmake --build build_nvlog --config Debug`
-  - `ctest --test-dir build_nvlog -C Debug --output-on-failure`
-- Verified no-ecosystem default configuration (optional companion modules absent):
-  - `cmake -S . -B build_noeco`
-  - `cmake --build build_noeco --config Debug`
-  - `ctest --test-dir build_noeco -C Debug --output-on-failure`
-
-### Notes
-- `ecosystem/` is canonical companion module layout.
-- Legacy folder-name fallback `third_party/` remains supported for migration.
-- This tag is host-tested MVP, not production embedded backend readiness.
-
-## Unreleased
-
-### Changed
-- `loxguard_run(...)` no longer implicitly resets the caller-provided blackbox. Call `lox_blackbox_init()` before first use (or to clear accumulated evidence).
+### Verification
+- Verified in CI:
+  - default build + tests (Windows/Linux/macOS)
+  - no-ecosystem build + tests (Windows/Linux/macOS)
+  - clang ASan/UBSan build + tests (Ubuntu)
+- Companion-enabled builds require companion sources and are not part of the default CI matrix.

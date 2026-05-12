@@ -3,7 +3,7 @@
 ## Pipeline
 
 ```text
-detect → classify → decide → act → persist → inspect
+detect -> classify -> decide -> act -> persist -> inspect
 ```
 
 ## 1. Detect
@@ -52,8 +52,8 @@ comms STARVED 3 times
 critical control FAULT
 → SAFE_MODE
 
-customer module MEMORY_FAULT
-→ QUARANTINE + BLACKBOX
+application module MEMORY_FAULT
+-> QUARANTINE + BLACKBOX
 ```
 
 ## 4. Act
