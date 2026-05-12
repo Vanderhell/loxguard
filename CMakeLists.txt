@@ -1,9 +1,13 @@
 cmake_minimum_required(VERSION 3.16)
-project(loxguard C)
+project(loxguard VERSION 0.1.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+
+include(GNUInstallDirs)
+
+option(LOXGUARD_BUILD_TESTS "Build tests and demo executables" ON)
 option(LOXGUARD_USE_NVLOG "Enable nvlog host/RAM persistence adapter" OFF)
 option(LOXGUARD_USE_MICROTIMER "Enable microtimer companion timing adapter path" OFF)
 option(LOXGUARD_USE_MICROWDT "Enable microwdt companion watchdog/liveness adapter path" OFF)
@@ -32,7 +36,13 @@ add_library(loxguard STATIC
     src/loxguard_shell.c
 )
 
-target_include_directories(loxguard PUBLIC include)
+add_library(loxguard::loxguard ALIAS loxguard)
+
+target_include_directories(loxguard
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 
 set(LOX_ECOSYSTEM_DIR "${CMAKE_SOURCE_DIR}/ecosystem")
 if(NOT EXISTS "${LOX_ECOSYSTEM_DIR}")
@@ -218,6 +228,40 @@ if(LOXGUARD_USE_NVLOG)
     endif()
 endif()
 
+install(
+    TARGETS loxguard
+    EXPORT loxguardTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/loxguardConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/loxguardConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/loxguard
+)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/loxguardConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+install(
+    EXPORT loxguardTargets
+    NAMESPACE loxguard::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/loxguard
+)
+install(
+    FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/loxguardConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/loxguardConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/loxguard
+)
+
+if(LOXGUARD_BUILD_TESTS)
 get_target_property(LOXGUARD_ALL_SOURCES loxguard SOURCES)
 add_library(loxguard_testlib STATIC ${LOXGUARD_ALL_SOURCES})
 target_include_directories(loxguard_testlib PUBLIC include)
@@ -291,4 +335,5 @@ if(POWERSHELL_EXE)
         NAME loxguard_static_check_guarded
         COMMAND ${POWERSHELL_EXE} -ExecutionPolicy Bypass -File ${CMAKE_SOURCE_DIR}/tools/guard_static_check.ps1 -Path ${CMAKE_SOURCE_DIR}/examples/guarded
     )
+endif()
 endif()
