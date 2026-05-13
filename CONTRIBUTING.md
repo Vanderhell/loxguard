@@ -10,6 +10,8 @@ cmake --build build --config Debug
 ctest --test-dir build -C Debug --output-on-failure
 ```
 
+This also runs the consumer smoke tests under `tests/consumer/` (add_subdirectory + install/find_package).
+
 ## Coding expectations
 
 - C99, portable where practical.

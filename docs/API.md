@@ -7,6 +7,15 @@ This file documents the public C API exposed by the headers in `include/`.
 `include/loxguard.h` defines:
 - `LOXGUARD_VERSION_MAJOR`, `LOXGUARD_VERSION_MINOR`, `LOXGUARD_VERSION_PATCH`
 
+## Stability
+
+For stability policy and what is considered stable starting at `v1.0.0`, see `docs/API_STABILITY.md`.
+
+At a high level:
+- **STABLE**: `loxguard.h`, `loxguard_checked.h`, `loxguard_format.h`
+- **EXPERIMENTAL**: `loxguard_experimental.h` and all headers it includes
+- **DEMO/TEST ONLY**: host demo helpers declared in `loxguard.h`
+
 ## Core types
 
 From `include/loxguard.h`:
@@ -43,7 +52,35 @@ Arena helpers provide bounded allocation from a fixed memory block:
 - `lox_action_t lox_policy_decide(const lox_event_t *event);`
 - `void lox_set_recovery_callback(lox_recovery_cb_t cb, void *user_ctx);`
 
-## Demos (host-only)
+## Export/import formats (host diagnostics)
+
+From `include/loxguard_format.h`:
+- event lines: `lox_event_format_csv(...)`, `lox_event_parse_csv_line(_ex)(...)`
+- blackbox CSV buffer/lines: `lox_blackbox_export_csv_*`, `lox_blackbox_import_csv_buffer(...)`
+- report lines: `lox_report_format_kv(...)`, `lox_report_parse_kv(_ex)(...)`
+
+Schema and compatibility rules are defined in `docs/API_STABILITY.md` and `docs/FORMAT_EXPORTS.md`.
+
+## Experimental headers
+
+The following headers are intentionally **EXPERIMENTAL** for `v1.0.0`:
+
+- `include/loxguard_adapters.h` (ecosystem integration hooks; optional/non-vendored)
+- `include/loxguard_backends.h` (RTOS/MPU stub interfaces)
+- `include/loxguard_ports.h` (port selection stubs)
+- `include/loxguard_rtos_bridge.h` (RTOS bridging helpers; host-tested only)
+- `include/loxguard_shell.h` (host shell command helper)
+- `include/loxguard_profiles.h` (compile-time profile macros)
+
+To opt in explicitly, include:
+
+```c
+#include "loxguard_experimental.h"
+```
+
+This defines `LOXGUARD_EXPERIMENTAL=1` for the translation unit.
+
+## Demos (host-only, demo/test-only API)
 
 The following helpers are shipped for demo/testing and are not evidence of embedded containment:
 - `lox_run_checked_parser_demo(...)`

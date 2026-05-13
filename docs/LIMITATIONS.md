@@ -24,6 +24,10 @@ Memory fault containment requires hardware support:
 - VM/interpreter,
 - or equivalent isolation.
 
+Repository evidence note:
+- This repository currently verifies the **host-tested core** behavior only (see `docs/EVIDENCE_MATRIX.md`).
+- RTOS/MPU “containment” interfaces and demos do not constitute verified embedded behavior unless raw hardware artifacts are checked into `artifacts/evidence/`.
+
 ## Not covered by default
 
 - DMA misuse,

@@ -5,6 +5,7 @@
 Verified by CI:
 - host builds + unit tests on Windows, Linux, and macOS
 - clang ASan/UBSan run on Ubuntu
+- consumer smoke tests (library usage via `add_subdirectory(...)` and install + `find_package(...)`)
 
 Not verified by repository artifacts:
 - embedded hardware behavior

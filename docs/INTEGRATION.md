@@ -8,7 +8,7 @@ Companion integrations (optional) are discovered only if you provide sources und
 
 ```cmake
 add_subdirectory(path/to/loxguard)
-target_link_libraries(my_target PRIVATE loxguard)
+target_link_libraries(my_target PRIVATE loxguard::loxguard)
 ```
 
 Headers are under `include/`:
@@ -16,6 +16,9 @@ Headers are under `include/`:
 ```c
 #include "loxguard.h"
 ```
+
+Notes:
+- When loxguard is added as a subdirectory, `LOXGUARD_BUILD_TESTS` defaults to `OFF` to avoid building tests/demos in your superproject.
 
 ## CMake: install + find_package
 
@@ -25,6 +28,8 @@ If you install the project, a CMake package is generated:
 find_package(loxguard CONFIG REQUIRED)
 target_link_libraries(my_target PRIVATE loxguard::loxguard)
 ```
+
+Installation exports the `loxguard::loxguard` target.
 
 ## Source-copy integration
 
@@ -47,6 +52,12 @@ The project does not vendor companion libraries. If the matching headers/sources
 Verification scope:
 - CI verifies `default` and `no-ecosystem` builds on Windows/Linux/macOS, plus a clang ASan/UBSan job on Ubuntu.
 - Companion-enabled builds require companion sources and are not part of the default CI matrix.
+
+Ecosystem root discovery order (when `LOX_ECOSYSTEM_DIR` is not set):
+1. `${CMAKE_CURRENT_SOURCE_DIR}/ecosystem`
+2. `${CMAKE_SOURCE_DIR}/ecosystem`
+3. `${CMAKE_CURRENT_SOURCE_DIR}/third_party`
+4. `${CMAKE_SOURCE_DIR}/third_party`
 
 ## Evidence discipline
 

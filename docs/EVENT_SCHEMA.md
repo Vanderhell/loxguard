@@ -1,95 +1,55 @@
-# Event Schema
+# Event Schema (v1 core)
 
-## Purpose
+This document describes the event schema used by the stable host-tested core API.
 
-All Guard Block and module failures become a common event.
+Public types live in `include/loxguard.h`:
 
-## Initial C shape
+- `lox_event_t`
+- `lox_event_kind_t`
+- `lox_blackbox_t`
+
+## `lox_event_t`
 
 ```c
-typedef struct loxguard_event {
-    uint32_t tick;
-    uint16_t source_id;
-    uint16_t event_type;
-
-    uint8_t severity;
-    uint8_t state_before;
-    uint8_t state_after;
-    uint8_t action_taken;
-
-    uint32_t detail0;
-    uint32_t detail1;
-    uint32_t detail2;
-    uint32_t detail3;
-} loxguard_event_t;
+typedef struct {
+    lox_event_kind_t kind;
+    const char *block_name;
+    const char *reason;
+    size_t index;
+    size_t limit;
+    uint32_t aux_code;
+} lox_event_t;
 ```
 
-## Event types
+Notes:
+- `block_name` and `reason` are pointers to C strings at the time of emission. When stored into a `lox_blackbox_t`, the blackbox owns bounded copies.
+- `index`/`limit` are used for bounds/arena style events.
+- `aux_code` is an additional numeric field used by specific event kinds (for example diagnostic codes).
 
-```text
-BLOCK_ENTERED
-BLOCK_OK
-BLOCK_ERROR
-BLOCK_TIMEOUT
-BLOCK_PANIC
-BLOCK_FAULT
-BLOCK_MEMORY_FAULT
-MODULE_REGISTERED
-HEARTBEAT_OK
-HEARTBEAT_LATE
-WATCHDOG_STARVED
-RECOVERY_STARTED
-RECOVERY_OK
-RECOVERY_FAILED
-MODULE_DISABLED
-MODULE_QUARANTINED
-DEGRADED_MODE_ENTERED
-SAFE_MODE_ENTERED
-PANIC_REPORTED
-BOOT_LOOP_DETECTED
-BLACKBOX_STORED
-```
+## `lox_event_kind_t` (v1)
 
-## Severity
+The public enum includes:
 
-```text
-INFO
-WARN
-FAULT
-CRITICAL
-FATAL
-```
+- `LOX_EVENT_NONE`
+- `LOX_EVENT_BLOCK_WRITE_OUT_OF_BOUNDS`
+- `LOX_EVENT_BLOCK_ARENA_OVERFLOW`
+- `LOX_EVENT_BLOCK_TIMEOUT`
+- `LOX_EVENT_BLOCK_MEMORY_FAULT`
+- `LOX_EVENT_BLOCK_UNSUPPORTED`
+- `LOX_EVENT_BLOCK_ENTERED`
+- `LOX_EVENT_BLOCK_OK`
+- `LOX_EVENT_BLOCK_COMPLETED`
+- `LOX_EVENT_BLOCK_ERROR`
+- `LOX_EVENT_BLOCK_PANIC`
+- `LOX_EVENT_BLOCK_FAULT`
 
-## Rules
+See `include/loxguard.h` for the authoritative list and numeric values.
 
-- Events describe facts.
-- Policies describe decisions.
-- Persistent events must not contain raw pointers.
-- Event format must be fixed-size and ring-buffer friendly.
-- No heap required.
+## Export/import formats
 
-## v4 additions for Checked Guard Blocks
+Event exports/imports are documented in:
 
-Additional event types:
+- `docs/FORMAT_EXPORTS.md`
+- `docs/API_STABILITY.md`
 
-```text
-BLOCK_BOUNDS_VIOLATION
-BLOCK_READ_OUT_OF_BOUNDS
-BLOCK_WRITE_OUT_OF_BOUNDS
-BLOCK_ARENA_OVERFLOW
-BLOCK_CONTRACT_VIOLATION
-BLOCK_FORBIDDEN_CALL
-BLOCK_STACK_BUDGET_EXCEEDED
-BLOCK_RECURSION_LIMIT
-```
-
-These events must be generated before the unsafe operation is executed whenever possible.
-
-Example:
-
-```text
-output span len=16
-write index=17
-→ BLOCK_WRITE_OUT_OF_BOUNDS
-→ write is not performed
-```
+The export format uses percent-encoding for `block` and `reason` to keep lines reversible and parseable.

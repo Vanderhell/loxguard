@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(loxguard VERSION 0.1.0 LANGUAGES C)
+project(loxguard VERSION 1.0.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -7,7 +7,12 @@ set(CMAKE_C_EXTENSIONS OFF)
 
 include(GNUInstallDirs)
 
-option(LOXGUARD_BUILD_TESTS "Build tests and demo executables" ON)
+set(LOXGUARD_IS_TOP_LEVEL OFF)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    set(LOXGUARD_IS_TOP_LEVEL ON)
+endif()
+
+option(LOXGUARD_BUILD_TESTS "Build tests and demo executables (default ON only for top-level builds)" ${LOXGUARD_IS_TOP_LEVEL})
 option(LOXGUARD_USE_NVLOG "Enable nvlog host/RAM persistence adapter" OFF)
 option(LOXGUARD_USE_MICROTIMER "Enable microtimer companion timing adapter path" OFF)
 option(LOXGUARD_USE_MICROWDT "Enable microwdt companion watchdog/liveness adapter path" OFF)
@@ -44,11 +49,29 @@ target_include_directories(loxguard
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-set(LOX_ECOSYSTEM_DIR "${CMAKE_SOURCE_DIR}/ecosystem")
-if(NOT EXISTS "${LOX_ECOSYSTEM_DIR}")
-    set(LOX_ECOSYSTEM_DIR "${CMAKE_SOURCE_DIR}/third_party")
+set(LOX_ECOSYSTEM_DIR "" CACHE PATH "Path to loxguard ecosystem/ or third_party/ root. When empty, loxguard auto-discovers.")
+if(LOX_ECOSYSTEM_DIR STREQUAL "")
+    set(_lox_ecosystem_candidates
+        "${CMAKE_CURRENT_SOURCE_DIR}/ecosystem"
+        "${CMAKE_SOURCE_DIR}/ecosystem"
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party"
+        "${CMAKE_SOURCE_DIR}/third_party"
+    )
+    foreach(_cand IN LISTS _lox_ecosystem_candidates)
+        if(EXISTS "${_cand}")
+            set(LOX_ECOSYSTEM_DIR "${_cand}" CACHE PATH "Path to loxguard ecosystem/ or third_party/ root. When empty, loxguard auto-discovers." FORCE)
+            break()
+        endif()
+    endforeach()
+    unset(_lox_ecosystem_candidates)
+    unset(_cand)
 endif()
 
+if(LOX_ECOSYSTEM_DIR STREQUAL "" OR NOT EXISTS "${LOX_ECOSYSTEM_DIR}")
+    message(STATUS "loxguard: ecosystem root not found; building core-only.")
+endif()
+
+if(LOX_ECOSYSTEM_DIR AND EXISTS "${LOX_ECOSYSTEM_DIR}")
 if(EXISTS "${LOX_ECOSYSTEM_DIR}/safemath/safemath.h")
     target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/safemath")
     target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_SAFEMATH=1)
@@ -228,6 +251,8 @@ if(LOXGUARD_USE_NVLOG)
     endif()
 endif()
 
+endif() # LOX_ECOSYSTEM_DIR exists
+
 install(
     TARGETS loxguard
     EXPORT loxguardTargets
@@ -336,4 +361,28 @@ if(POWERSHELL_EXE)
         COMMAND ${POWERSHELL_EXE} -ExecutionPolicy Bypass -File ${CMAKE_SOURCE_DIR}/tools/guard_static_check.ps1 -Path ${CMAKE_SOURCE_DIR}/examples/guarded
     )
 endif()
+
+add_test(
+    NAME loxguard_consumer_add_subdirectory
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DMODE=add_subdirectory
+        -DLOXGUARD_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -DWORK_DIR=${CMAKE_BINARY_DIR}/consumer_add_subdirectory
+        -DCONFIG=$<CONFIG>
+        -P ${CMAKE_SOURCE_DIR}/tools/consumer_smoke_test.cmake
+)
+set_tests_properties(loxguard_consumer_add_subdirectory PROPERTIES LABELS "consumer")
+
+add_test(
+    NAME loxguard_consumer_install_find_package
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DMODE=install_find_package
+        -DLOXGUARD_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -DWORK_DIR=${CMAKE_BINARY_DIR}/consumer_install_find_package
+        -DCONFIG=$<CONFIG>
+        -P ${CMAKE_SOURCE_DIR}/tools/consumer_smoke_test.cmake
+)
+set_tests_properties(loxguard_consumer_install_find_package PROPERTIES LABELS "consumer")
 endif()

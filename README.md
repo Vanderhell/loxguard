@@ -1,24 +1,37 @@
 # loxguard
 
-C99 library for running user code in a supervised “guard block” that produces structured events and a small local evidence record.
+Host-tested C99 library for running user code in a supervised "guard block" that produces structured events and a small local evidence record.
 
-## Status
+## Status (v1.0.0 release candidate scope)
 
-- Current stage: `v0.1.0-alpha` (host-tested; no certification claims)
-- Verified by repository evidence: host builds + unit tests (see `docs/EVIDENCE_MATRIX.md`)
-- Embedded/RTOS/MPU behavior: interface stubs and demos exist, but hardware behavior is not verified by artifacts in this repository
+`v1.0.0` is intended to be a stable public contract for:
+
+- Guard Block execution (`loxguard_run(...)`)
+- Checked Span/Arena helpers (`lox_span_*`, `lox_arena_*`, and `loxguard_checked.h` macros)
+- Blackbox evidence core (`lox_blackbox_t`, events, reports)
+- Host diagnostic export/import formats (`loxguard_format.h`) as documented in `docs/API_STABILITY.md`
+
+Not verified by repository evidence (unless raw artifacts exist under `artifacts/evidence/`):
+
+- embedded hardware behavior (ESP32 or other MCU)
+- power-loss / restart consistency
+- production RTOS backend behavior
+- production MPU backend behavior
+- companion-enabled ecosystem builds (unless companion sources are checked in and exercised by CI)
+
+Verified-by-repo scope is tracked in `docs/EVIDENCE_MATRIX.md`.
 
 ## What it does
 
 - Runs a function inside a Guard Block wrapper (`loxguard_run(...)`)
-- Provides checked span/arena helpers for bounds-checked access used by the demos/tests
-- Captures lifecycle and failure events into a small in-memory “blackbox” (`lox_blackbox_t`)
-- Formats and parses CSV/report exports (`docs/FORMAT_EXPORTS.md`)
+- Provides checked span/arena helpers for bounds-checked access (opt-in through the checked APIs)
+- Captures lifecycle and failure events into a small in-memory blackbox (`lox_blackbox_t`)
+- Formats and parses host diagnostic exports (`docs/FORMAT_EXPORTS.md`)
 
 ## What it does not do
 
 - It does not make arbitrary C code memory-safe.
-- It does not provide RTOS/MPU “containment” in this alpha; those paths are not verified by repository artifacts.
+- It does not claim embedded RTOS/MPU "containment" as verified behavior without raw hardware artifacts in this repository.
 - It does not claim safety/security certification or compliance.
 
 ## Quick example
@@ -49,26 +62,16 @@ int main(void) {
 }
 ```
 
-Checked demo (host):
+Checked span use (opt-in checked API):
 
 ```c
 #include "loxguard.h"
+#include "loxguard_checked.h"
 
 int main(void) {
-    uint8_t in[8] = {0,1,2,3,4,5,6,7};
-    uint8_t out[16] = {0};
-    uint8_t scratch[64] = {0};
-    lox_blackbox_t bb;
-    lox_report_t report;
-
-    report = lox_run_checked_parser_demo(
-        in, sizeof(in),
-        out, sizeof(out),
-        scratch, sizeof(scratch),
-        &bb
-    );
-
-    return (report.result == LOX_RESULT_OK) ? 0 : 1;
+    uint8_t out[2] = {0};
+    lox_span_t s = lox_span_writable(out, sizeof(out));
+    return (LOX_WRITE_U8(&s, 0, 0xAA) == LOXGUARD_OK) ? 0 : 1;
 }
 ```
 
@@ -90,45 +93,25 @@ cmake --build build_noeco --config Debug
 ctest --test-dir build_noeco -C Debug --output-on-failure
 ```
 
-Sanitizers (CI, Ubuntu/clang only):
-
-```bash
-cmake -S . -B build_san \
-  -DCMAKE_C_COMPILER=clang \
-  -DCMAKE_BUILD_TYPE=Debug \
-  -DCMAKE_C_FLAGS="-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined" \
-  -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
-cmake --build build_san -j
-ctest --test-dir build_san --output-on-failure
-```
-
 ## Integration
 
 See `docs/INTEGRATION.md` for:
+
 - using `add_subdirectory(...)`
-- install + `find_package(...)`
-- source-copy integration
+- install + `find_package(loxguard CONFIG REQUIRED)`
 - optional ecosystem integrations (`LOXGUARD_USE_*`)
 
-## Tested platforms (repository evidence)
-
-- CI runs build+test on: Windows, Linux, macOS
-- CI runs a clang ASan/UBSan job on Ubuntu
-
-## Evidence
+## Evidence and limitations
 
 - Evidence matrix: `docs/EVIDENCE_MATRIX.md`
-- Raw host logs (when checked in): `artifacts/evidence/host/`
-- Hardware evidence directory (currently placeholders): `artifacts/evidence/esp32/`
+- Limitations: `docs/LIMITATIONS.md`
 
 ## Documentation
 
-- Public API: `docs/API.md`
-- Architecture: `docs/ARCHITECTURE.md`
+- API: `docs/API.md`
+- API stability: `docs/API_STABILITY.md`
 - Integration: `docs/INTEGRATION.md`
-- Limitations: `docs/LIMITATIONS.md`
-- Release notes: `docs/RELEASE_NOTES_v0.1.0-alpha.md`
-- Design notes (non-current): `docs/design/`
+- Release notes (v1): `docs/RELEASE_NOTES_v1.0.0.md`
 
 ## License
 

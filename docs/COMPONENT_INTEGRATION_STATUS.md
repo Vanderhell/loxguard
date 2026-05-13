@@ -1,6 +1,6 @@
 # Component Integration Status
 
-Date: 2026-05-12
+Date: 2026-05-13
 
 This repository does not vendor companion libraries under `ecosystem/`. Optional integrations are enabled only when you provide the companion sources locally (under `ecosystem/` or the legacy fallback `third_party/`).
 
@@ -23,7 +23,8 @@ The following CMake options exist:
 | (others) | planned/experimental integration surfaces | yes | no |
 
 Notes:
-- If an option is enabled but the required companion files are not present, the build continues without that integration and CMake emits a warning.
+- If the ecosystem root is not present, loxguard builds core-only (no companion sources).
+- If an option is enabled but the required companion files are not present under the discovered ecosystem root, the build continues without that integration and CMake emits a warning.
 - Presence of an option does not imply embedded production readiness; see `docs/LIMITATIONS.md` and `docs/EVIDENCE_MATRIX.md`.
 
 ## Related docs

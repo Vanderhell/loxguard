@@ -13,14 +13,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
+        variant: [default, no-ecosystem]
+        config: [Debug, Release]
         include:
-          - name: default
+          - variant: default
             build_dir: build
-            cmake_flags: ""
             no_ecosystem: false
-          - name: no-ecosystem
+          - variant: no-ecosystem
             build_dir: build_noeco
-            cmake_flags: ""
             no_ecosystem: true
 
     steps:
@@ -35,26 +35,26 @@ jobs:
             Remove-Item -Recurse -Force ecosystem
           }
 
-      - name: Configure (${{ matrix.name }})
+      - name: Configure (${{ matrix.variant }} / ${{ matrix.config }})
         shell: pwsh
-        run: cmake -S . -B ${{ matrix.build_dir }} ${{ matrix.cmake_flags }}
+        run: cmake -S . -B ${{ matrix.build_dir }} -DCMAKE_BUILD_TYPE=${{ matrix.config }}
 
-      - name: Build (${{ matrix.name }})
+      - name: Build (${{ matrix.variant }} / ${{ matrix.config }})
         shell: pwsh
-        run: cmake --build ${{ matrix.build_dir }} --config Debug
+        run: cmake --build ${{ matrix.build_dir }} --config ${{ matrix.config }}
 
-      - name: Test (${{ matrix.name }})
+      - name: Test (${{ matrix.variant }} / ${{ matrix.config }})
         shell: pwsh
         run: |
-          ctest --test-dir ${{ matrix.build_dir }} -C Debug --output-on-failure | Tee-Object -FilePath "${{ matrix.build_dir }}/ctest_${{ matrix.os }}_${{ matrix.name }}.txt"
+          ctest --test-dir ${{ matrix.build_dir }} -C ${{ matrix.config }} --output-on-failure | Tee-Object -FilePath "${{ matrix.build_dir }}/ctest_${{ matrix.os }}_${{ matrix.variant }}_${{ matrix.config }}.txt"
 
-      - name: Upload test logs (${{ matrix.name }})
+      - name: Upload test logs (${{ matrix.variant }} / ${{ matrix.config }})
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ctest-logs-${{ matrix.os }}-${{ matrix.name }}
+          name: ctest-logs-${{ matrix.os }}-${{ matrix.variant }}-${{ matrix.config }}
           path: |
-            ${{ matrix.build_dir }}/ctest_${{ matrix.os }}_${{ matrix.name }}.txt
+            ${{ matrix.build_dir }}/ctest_${{ matrix.os }}_${{ matrix.variant }}_${{ matrix.config }}.txt
 
   sanitizers:
     name: Sanitizers (clang, asan+ubsan)
@@ -79,7 +79,7 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          ctest --test-dir build_san --output-on-failure | tee build_san/ctest_sanitizers.txt
+          ctest --test-dir build_san --output-on-failure -LE consumer | tee build_san/ctest_sanitizers.txt
 
       - name: Upload test logs
         if: always()

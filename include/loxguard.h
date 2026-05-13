@@ -8,8 +8,8 @@
 extern "C" {
 #endif
 
-#define LOXGUARD_VERSION_MAJOR 0
-#define LOXGUARD_VERSION_MINOR 1
+#define LOXGUARD_VERSION_MAJOR 1
+#define LOXGUARD_VERSION_MINOR 0
 #define LOXGUARD_VERSION_PATCH 0
 
 typedef enum {

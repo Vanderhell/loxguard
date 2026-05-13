@@ -4,7 +4,23 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
-- Documentation and repository hygiene updates.
+- (no entries)
+
+## v1.0.0 (2026-05-13)
+
+### Stabilized (public contract)
+- Stable host-tested core API surface defined in `docs/API_STABILITY.md`.
+- Host diagnostic export/import formats documented as stable for `1.x` (`docs/API_STABILITY.md`, `docs/FORMAT_EXPORTS.md`).
+
+### Build / integration
+- `LOXGUARD_BUILD_TESTS` defaults to `ON` only for top-level builds (avoids building tests/demos in superprojects).
+- Ecosystem discovery checks both the loxguard-local and superproject paths (`ecosystem/` and `third_party/`).
+- Consumer smoke tests added for:
+  - `add_subdirectory(...)` consumption,
+  - install + `find_package(loxguard CONFIG REQUIRED)` consumption.
+
+### Documentation
+- README and core docs updated to match the `v1.0.0` scope: host-tested core is stable; RTOS/MPU/embedded/power-loss and companion builds remain not verified unless raw repo artifacts exist.
 
 ## v0.1.0-alpha (2026-04-30)
 
