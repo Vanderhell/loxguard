@@ -369,6 +369,7 @@ add_test(
         -DMODE=add_subdirectory
         -DLOXGUARD_SOURCE_DIR=${CMAKE_SOURCE_DIR}
         -DWORK_DIR=${CMAKE_BINARY_DIR}/consumer_add_subdirectory
+        -DBUILD_TYPE=${CMAKE_BUILD_TYPE}
         -DCONFIG=$<CONFIG>
         -P ${CMAKE_SOURCE_DIR}/tools/consumer_smoke_test.cmake
 )
@@ -381,6 +382,7 @@ add_test(
         -DMODE=install_find_package
         -DLOXGUARD_SOURCE_DIR=${CMAKE_SOURCE_DIR}
         -DWORK_DIR=${CMAKE_BINARY_DIR}/consumer_install_find_package
+        -DBUILD_TYPE=${CMAKE_BUILD_TYPE}
         -DCONFIG=$<CONFIG>
         -P ${CMAKE_SOURCE_DIR}/tools/consumer_smoke_test.cmake
 )
