@@ -304,6 +304,7 @@ target_compile_definitions(loxguard_testlib PRIVATE LOXGUARD_TESTING=1)
 
 add_executable(loxguard_test
     tests/test_common.c
+    tests/test_phase01_core.c
     tests/test_span.c
     tests/test_arena.c
     tests/test_pipeline.c
@@ -361,6 +362,15 @@ if(POWERSHELL_EXE)
         COMMAND ${POWERSHELL_EXE} -ExecutionPolicy Bypass -File ${CMAKE_SOURCE_DIR}/tools/guard_static_check.ps1 -Path ${CMAKE_SOURCE_DIR}/examples/guarded
     )
 endif()
+
+add_test(
+    NAME loxguard_blackbox_layout_compat
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DLOXGUARD_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -DWORK_DIR=${CMAKE_BINARY_DIR}
+        -P ${CMAKE_SOURCE_DIR}/tools/blackbox_layout_compat_check.cmake
+)
 
 add_test(
     NAME loxguard_consumer_add_subdirectory

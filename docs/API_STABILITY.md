@@ -25,6 +25,12 @@ STABLE headers (public contract from `v1.0.0`):
 - `include/loxguard_checked.h` (checked helper macros for spans/arena)
 - `include/loxguard_format.h` (host diagnostic export/import formats; see below)
 
+Stable blackbox layout macros:
+- `LOX_BLACKBOX_MAX_EVENTS` = `16`
+- `LOX_BLACKBOX_STR_MAX` = `64`
+
+Consumer predefinitions that attempt to change either value are rejected at compile time.
+
 EXPERIMENTAL headers (not part of the v1 stable contract):
 - `include/loxguard_experimental.h` (umbrella header that defines `LOXGUARD_EXPERIMENTAL=1`)
 - `include/loxguard_adapters.h`

@@ -59,6 +59,8 @@ From `include/loxguard_format.h`:
 - blackbox CSV buffer/lines: `lox_blackbox_export_csv_*`, `lox_blackbox_import_csv_buffer(...)`
 - report lines: `lox_report_format_kv(...)`, `lox_report_parse_kv(_ex)(...)`
 
+Legacy `lox_report_parse_kv(...)` returns numeric/report fields only. Its text pointers are set to `NULL` after parse; use `lox_report_parse_kv_ex(...)` for an owning snapshot.
+
 Schema and compatibility rules are defined in `docs/API_STABILITY.md` and `docs/FORMAT_EXPORTS.md`.
 
 ## Experimental headers

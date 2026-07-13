@@ -336,6 +336,8 @@ int test_pipeline_legacy_suite(void) {
     failed |= expect(lox_report_parse_kv(report_line, &parsed_report, &parsed_kind) == 1, "report parse line");
     failed |= expect(parsed_report.result == LOX_RESULT_TIMEOUT, "report parse result");
     failed |= expect(parsed_kind == LOX_EVENT_BLOCK_TIMEOUT, "report parse event kind");
+    failed |= expect(parsed_report.last_block == NULL, "report parse line clears legacy block pointer");
+    failed |= expect(parsed_report.reason == NULL, "report parse line clears legacy reason pointer");
     failed |= expect(lox_report_parse_kv_ex(report_line, &parsed_snapshot) == 1, "report parse ex line");
     failed |= expect(strcmp(parsed_snapshot.report.reason, "RTOS_TIMEOUT") == 0, "report parse ex reason");
 

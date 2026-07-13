@@ -8,6 +8,6 @@
 #define LOX_MEMCPY(dst_ptr, dst_off, src_ptr, src_off, len) \
     lox_span_memcpy((dst_ptr), (dst_off), (src_ptr), (src_off), (len))
 #define LOX_ARENA_ALLOC(arena_ptr, type, count) \
-    ((type *)lox_arena_alloc((arena_ptr), sizeof(type) * (count), sizeof(void *)))
+    ((type *)loxguard_arena_alloc_array((arena_ptr), sizeof(type), (size_t)(count), offsetof(struct { char _loxguard_align; type _loxguard_member; }, _loxguard_member)))
 
 #endif

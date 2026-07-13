@@ -1,8 +1,8 @@
 #ifndef LOXGUARD_H
 #define LOXGUARD_H
 
-#include <stddef.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,6 +11,16 @@ extern "C" {
 #define LOXGUARD_VERSION_MAJOR 1
 #define LOXGUARD_VERSION_MINOR 0
 #define LOXGUARD_VERSION_PATCH 0
+
+#define LOXGUARD_BLACKBOX_MAX_EVENTS_DEFAULT 16u
+#define LOXGUARD_BLACKBOX_STR_MAX_DEFAULT 64u
+
+#if defined(LOX_BLACKBOX_MAX_EVENTS) && (LOX_BLACKBOX_MAX_EVENTS != LOXGUARD_BLACKBOX_MAX_EVENTS_DEFAULT)
+#error "LOX_BLACKBOX_MAX_EVENTS must match the stable blackbox layout"
+#endif
+#if defined(LOX_BLACKBOX_STR_MAX) && (LOX_BLACKBOX_STR_MAX != LOXGUARD_BLACKBOX_STR_MAX_DEFAULT)
+#error "LOX_BLACKBOX_STR_MAX must match the stable blackbox layout"
+#endif
 
 typedef enum {
     LOXGUARD_OK = 0,
@@ -82,11 +92,11 @@ typedef struct {
 } lox_event_t;
 
 #ifndef LOX_BLACKBOX_MAX_EVENTS
-#define LOX_BLACKBOX_MAX_EVENTS 16u
+#define LOX_BLACKBOX_MAX_EVENTS LOXGUARD_BLACKBOX_MAX_EVENTS_DEFAULT
 #endif
 
 #ifndef LOX_BLACKBOX_STR_MAX
-#define LOX_BLACKBOX_STR_MAX 64u
+#define LOX_BLACKBOX_STR_MAX LOXGUARD_BLACKBOX_STR_MAX_DEFAULT
 #endif
 
 typedef struct {
@@ -139,6 +149,28 @@ typedef struct {
 
 typedef int (*loxguard_fn_t)(lox_guard_ctx_t *guard, void *user_ctx);
 
+void *lox_arena_alloc(lox_arena_t *a, size_t size, size_t align);
+
+static inline int loxguard_checked_mul_size(size_t a, size_t b, size_t *out) {
+    if (out == NULL) {
+        return 0;
+    }
+    if (a != 0u && b > ((size_t)-1) / a) {
+        return 0;
+    }
+    *out = a * b;
+    return 1;
+}
+
+static inline void *loxguard_arena_alloc_array(lox_arena_t *a, size_t element_size, size_t count, size_t align) {
+    size_t total;
+
+    if (!loxguard_checked_mul_size(element_size, count, &total)) {
+        return NULL;
+    }
+    return lox_arena_alloc(a, total, align);
+}
+
 lox_span_t lox_span_readonly(const void *ptr, size_t len);
 lox_span_t lox_span_writable(void *ptr, size_t len);
 
@@ -153,7 +185,6 @@ int lox_span_memcpy(
 );
 
 void lox_arena_init(lox_arena_t *a, void *mem, size_t size);
-void *lox_arena_alloc(lox_arena_t *a, size_t size, size_t align);
 void lox_arena_reset(lox_arena_t *a);
 size_t lox_arena_used(const lox_arena_t *a);
 size_t lox_arena_remaining(const lox_arena_t *a);

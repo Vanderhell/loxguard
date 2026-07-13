@@ -16,33 +16,60 @@ static void *g_recovery_user_ctx = NULL;
 typedef struct {
     int in_use;
     char block_name[64];
+    uint32_t name_hash;
     uint32_t streak;
 } lox_failure_streak_t;
 
 static lox_failure_streak_t g_failure_streaks[LOX_FAILURE_STREAK_SLOTS];
+static lox_failure_streak_t g_failure_streak_overflow;
+
+static uint32_t lox_hash_block_name(const char *block_name) {
+    const unsigned char *p = (const unsigned char *)((block_name == NULL || block_name[0] == '\0') ? "global" : block_name);
+    uint32_t hash = 2166136261u;
+
+    while (*p != '\0') {
+        hash ^= (uint32_t)(*p++);
+        hash *= 16777619u;
+    }
+    return hash;
+}
+
+static int lox_failure_streak_name_matches(const lox_failure_streak_t *slot, const char *key, uint32_t key_hash) {
+    if (slot == NULL || !slot->in_use) {
+        return 0;
+    }
+    if (slot->name_hash != key_hash) {
+        return 0;
+    }
+    return strcmp(slot->block_name, key) == 0;
+}
 
 static uint32_t *lox_failure_streak_for_block(const char *block_name) {
     size_t i;
     size_t free_idx = LOX_FAILURE_STREAK_SLOTS;
     const char *key = (block_name == NULL || block_name[0] == '\0') ? "global" : block_name;
+    uint32_t key_hash = lox_hash_block_name(key);
 
     for (i = 0u; i < LOX_FAILURE_STREAK_SLOTS; i++) {
-        if (g_failure_streaks[i].in_use) {
-            if (strncmp(g_failure_streaks[i].block_name, key, sizeof(g_failure_streaks[i].block_name)) == 0) {
-                return &g_failure_streaks[i].streak;
-            }
+        if (lox_failure_streak_name_matches(&g_failure_streaks[i], key, key_hash)) {
+            return &g_failure_streaks[i].streak;
         } else if (free_idx == LOX_FAILURE_STREAK_SLOTS) {
             free_idx = i;
         }
     }
 
     if (free_idx == LOX_FAILURE_STREAK_SLOTS) {
-        return &g_failure_streaks[0].streak;
+        g_failure_streak_overflow.in_use = 1;
+        g_failure_streak_overflow.name_hash = key_hash;
+        strncpy(g_failure_streak_overflow.block_name, key, sizeof(g_failure_streak_overflow.block_name) - 1u);
+        g_failure_streak_overflow.block_name[sizeof(g_failure_streak_overflow.block_name) - 1u] = '\0';
+        return &g_failure_streak_overflow.streak;
     }
 
     g_failure_streaks[free_idx].in_use = 1;
     strncpy(g_failure_streaks[free_idx].block_name, key, sizeof(g_failure_streaks[free_idx].block_name) - 1u);
     g_failure_streaks[free_idx].block_name[sizeof(g_failure_streaks[free_idx].block_name) - 1u] = '\0';
+    g_failure_streaks[free_idx].name_hash = key_hash;
     g_failure_streaks[free_idx].streak = 0u;
     return &g_failure_streaks[free_idx].streak;
 }
@@ -227,7 +254,7 @@ int lox_span_memcpy(
         return LOXGUARD_ERR_BOUNDS;
     }
     if (len > 0u) {
-        memcpy(dst->base + dst_off, src->base + src_off, len);
+        memmove(dst->base + dst_off, src->base + src_off, len);
     }
     return LOXGUARD_OK;
 }
@@ -303,6 +330,7 @@ void lox_blackbox_init(lox_blackbox_t *bb) {
 void lox_blackbox_store(lox_blackbox_t *bb, const lox_event_t *event) {
     size_t idx;
     size_t i;
+    size_t capacity;
     const char *block;
     const char *reason;
 
@@ -310,16 +338,23 @@ void lox_blackbox_store(lox_blackbox_t *bb, const lox_event_t *event) {
         return;
     }
 
+    capacity = sizeof(bb->events) / sizeof(bb->events[0]);
+    if (bb->count > capacity) {
+        bb->count = capacity;
+    }
+
     block = (event->block_name == NULL) ? "none" : event->block_name;
     reason = (event->reason == NULL) ? "none" : event->reason;
 
-    if (bb->count < (sizeof(bb->events) / sizeof(bb->events[0]))) {
+    if (bb->count < capacity) {
         idx = bb->count++;
     } else {
-        memmove(&bb->events[0], &bb->events[1], (bb->count - 1u) * sizeof(bb->events[0]));
-        memmove(&bb->block_names[0], &bb->block_names[1], (bb->count - 1u) * sizeof(bb->block_names[0]));
-        memmove(&bb->reasons[0], &bb->reasons[1], (bb->count - 1u) * sizeof(bb->reasons[0]));
-        idx = bb->count - 1u;
+        if (capacity > 0u) {
+            memmove(&bb->events[0], &bb->events[1], (capacity - 1u) * sizeof(bb->events[0]));
+            memmove(&bb->block_names[0], &bb->block_names[1], (capacity - 1u) * sizeof(bb->block_names[0]));
+            memmove(&bb->reasons[0], &bb->reasons[1], (capacity - 1u) * sizeof(bb->reasons[0]));
+        }
+        idx = capacity - 1u;
     }
 
     bb->events[idx] = *event;

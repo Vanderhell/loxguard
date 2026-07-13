@@ -1,6 +1,10 @@
 #include "loxguard_format.h"
 
+#include <errno.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static const char *k_csv_schema_header = "kind,block,reason,index,limit,aux";
@@ -46,26 +50,30 @@ static void lox_encode_kv_value(char *dst, size_t dst_len, const char *src) {
     dst[pos] = '\0';
 }
 
-static void lox_decode_kv_value(char *dst, size_t dst_len, const char *src) {
+static int lox_decode_kv_value_n(char *dst, size_t dst_len, const char *src, size_t src_len) {
     size_t pos;
     size_t i;
 
     if (dst == NULL || dst_len == 0u) {
-        return;
+        return 0;
     }
     if (src == NULL) {
         dst[0] = '\0';
-        return;
+        return 1;
     }
 
     pos = 0u;
     i = 0u;
-    while (src[i] != '\0' && pos + 1u < dst_len) {
-        if (src[i] == '%' && src[i + 1u] != '\0' && src[i + 2u] != '\0') {
+    while (i < src_len && pos + 1u < dst_len) {
+        if (src[i] == '%' && i + 2u < src_len) {
             int hi = lox_hex_value(src[i + 1u]);
             int lo = lox_hex_value(src[i + 2u]);
             if (hi >= 0 && lo >= 0) {
-                dst[pos++] = (char)((hi << 4) | lo);
+                unsigned char decoded = (unsigned char)((hi << 4) | lo);
+                if (decoded == '\0') {
+                    return 0;
+                }
+                dst[pos++] = (char)decoded;
                 i += 3u;
                 continue;
             }
@@ -73,6 +81,14 @@ static void lox_decode_kv_value(char *dst, size_t dst_len, const char *src) {
         dst[pos++] = src[i++];
     }
     dst[pos] = '\0';
+    return 1;
+}
+
+static int lox_decode_kv_value(char *dst, size_t dst_len, const char *src) {
+    if (src == NULL) {
+        return lox_decode_kv_value_n(dst, dst_len, NULL, 0u);
+    }
+    return lox_decode_kv_value_n(dst, dst_len, src, strlen(src));
 }
 
 static int lox_event_kind_is_valid(int kind) {
@@ -81,6 +97,116 @@ static int lox_event_kind_is_valid(int kind) {
 
 static int lox_action_is_valid(unsigned int action) {
     return action <= (unsigned int)LOX_ACTION_RESET_BLOCK;
+}
+
+static int lox_token_next(const char **cursor, const char **token_start, size_t *token_len, int *had_comma) {
+    const char *start;
+    const char *comma;
+
+    if (cursor == NULL || token_start == NULL || token_len == NULL || had_comma == NULL || *cursor == NULL) {
+        return 0;
+    }
+
+    start = *cursor;
+    if (*start == '\0') {
+        return 0;
+    }
+
+    comma = strchr(start, ',');
+    if (comma == NULL) {
+        *token_start = start;
+        *token_len = strlen(start);
+        *cursor = start + *token_len;
+        *had_comma = 0;
+        return 1;
+    }
+
+    *token_start = start;
+    *token_len = (size_t)(comma - start);
+    *cursor = comma + 1;
+    *had_comma = 1;
+    return 1;
+}
+
+static int lox_token_value(const char *token, size_t token_len, const char *key, const char **value_start, size_t *value_len) {
+    size_t key_len;
+
+    if (token == NULL || key == NULL || value_start == NULL || value_len == NULL) {
+        return 0;
+    }
+
+    key_len = strlen(key);
+    if (token_len <= key_len + 1u) {
+        return 0;
+    }
+    if (strncmp(token, key, key_len) != 0 || token[key_len] != '=') {
+        return 0;
+    }
+
+    *value_start = token + key_len + 1u;
+    *value_len = token_len - (key_len + 1u);
+    return 1;
+}
+
+static int lox_parse_uintmax_strict(const char *value, uintmax_t *out) {
+    char *end = NULL;
+    uintmax_t parsed;
+
+    if (value == NULL || out == NULL || *value == '\0' || *value == '+' || *value == '-') {
+        return 0;
+    }
+
+    errno = 0;
+    parsed = strtoumax(value, &end, 10);
+    if (errno == ERANGE || end == NULL || *end != '\0') {
+        return 0;
+    }
+
+    *out = parsed;
+    return 1;
+}
+
+static int lox_parse_size_strict(const char *value, size_t *out) {
+    uintmax_t parsed;
+
+    if (!lox_parse_uintmax_strict(value, &parsed) || parsed > (uintmax_t)(size_t)-1) {
+        return 0;
+    }
+
+    *out = (size_t)parsed;
+    return 1;
+}
+
+static int lox_parse_u32_strict(const char *value, uint32_t *out) {
+    uintmax_t parsed;
+
+    if (!lox_parse_uintmax_strict(value, &parsed) || parsed > UINT32_MAX) {
+        return 0;
+    }
+
+    *out = (uint32_t)parsed;
+    return 1;
+}
+
+static int lox_parse_int_strict(const char *value, int *out) {
+    char *end = NULL;
+    long parsed;
+
+    if (value == NULL || out == NULL || *value == '\0' || *value == '+' || *value == '-') {
+        return 0;
+    }
+
+    errno = 0;
+    parsed = strtol(value, &end, 10);
+    if (errno == ERANGE || end == NULL || *end != '\0') {
+        return 0;
+    }
+    if (parsed < (long)INT_MIN || parsed > (long)INT_MAX) {
+        return 0;
+    }
+
+    *out = (int)parsed;
+    return 1;
 }
 
 size_t lox_event_format_csv(const lox_event_t *event, char *out, size_t out_len) {
@@ -274,81 +400,105 @@ int lox_event_parse_csv_line(const char *line, lox_event_t *out_event) {
 int lox_event_parse_csv_line_ex(const char *line, lox_event_snapshot_t *out_snapshot) {
     int kind;
     unsigned int aux;
-    char block[64];
-    char reason[64];
     size_t index;
     size_t limit;
-    const char *p;
-    const char *block_start;
-    const char *reason_start;
-    const char *index_start;
-    const char *limit_start;
-    const char *aux_start;
-    const char *comma;
-    char tail;
-    int n;
+    const char *cursor;
+    const char *token;
+    size_t token_len;
+    int had_comma;
+    const char *value;
+    size_t value_len;
+    char block[64];
+    char reason[64];
 
     if (line == NULL || out_snapshot == NULL) {
         return 0;
     }
 
-    p = line;
-    n = sscanf(p, "kind=%d%c", &kind, &tail);
-    if (n < 1) {
-        return 0;
-    }
+    cursor = line;
 
-    block_start = strstr(p, ",block=");
-    reason_start = strstr(p, ",reason=");
-    index_start = strstr(p, ",index=");
-    limit_start = strstr(p, ",limit=");
-    aux_start = strstr(p, ",aux=");
-    if (block_start == NULL || reason_start == NULL || index_start == NULL || limit_start == NULL || aux_start == NULL) {
-        return 0;
-    }
-    if (!(block_start < reason_start && reason_start < index_start && index_start < limit_start && limit_start < aux_start)) {
-        return 0;
-    }
-
-    block_start += 7; /* ",block=" */
-    comma = strchr(block_start, ',');
-    if (comma == NULL || comma != reason_start) {
+    if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "kind", &value, &value_len)) {
         return 0;
     }
     {
-        size_t copy = (size_t)(reason_start - block_start);
-        if (copy >= sizeof(block)) {
-            copy = sizeof(block) - 1u;
+        char kind_buf[32];
+        if (value_len >= sizeof(kind_buf)) {
+            return 0;
         }
-        memcpy(block, block_start, copy);
-        block[copy] = '\0';
-    }
-    if (block[0] == '\0') {
-        return 0;
+        memcpy(kind_buf, value, value_len);
+        kind_buf[value_len] = '\0';
+        if (!lox_parse_int_strict(kind_buf, &kind)) {
+            return 0;
+        }
     }
 
-    reason_start += 8; /* ",reason=" */
-    comma = strchr(reason_start, ',');
-    if (comma == NULL || comma != index_start) {
+    if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "block", &value, &value_len)) {
         return 0;
     }
     {
-        size_t copy = (size_t)(index_start - reason_start);
-        if (copy >= sizeof(reason)) {
-            copy = sizeof(reason) - 1u;
+        if (value_len == 0u || !lox_decode_kv_value_n(block, sizeof(block), value, value_len)) {
+            return 0;
         }
-        memcpy(reason, reason_start, copy);
-        reason[copy] = '\0';
     }
-    if (reason[0] == '\0') {
+
+    if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "reason", &value, &value_len)) {
+        return 0;
+    }
+    {
+        if (value_len == 0u || !lox_decode_kv_value_n(reason, sizeof(reason), value, value_len)) {
+            return 0;
+        }
+    }
+
+    if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "index", &value, &value_len)) {
+        return 0;
+    }
+    {
+        char token_buf[32];
+        if (value_len >= sizeof(token_buf)) {
+            return 0;
+        }
+        memcpy(token_buf, value, value_len);
+        token_buf[value_len] = '\0';
+        if (!lox_parse_size_strict(token_buf, &index)) {
+            return 0;
+        }
+    }
+
+    if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "limit", &value, &value_len)) {
+        return 0;
+    }
+    {
+        char token_buf[32];
+        if (value_len >= sizeof(token_buf)) {
+            return 0;
+        }
+        memcpy(token_buf, value, value_len);
+        token_buf[value_len] = '\0';
+        if (!lox_parse_size_strict(token_buf, &limit)) {
+            return 0;
+        }
+    }
+
+    if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "aux", &value, &value_len)) {
+        return 0;
+    }
+    {
+        char token_buf[32];
+        if (value_len >= sizeof(token_buf)) {
+            return 0;
+        }
+        memcpy(token_buf, value, value_len);
+        token_buf[value_len] = '\0';
+        if (!lox_parse_u32_strict(token_buf, &aux)) {
+            return 0;
+        }
+    }
+
+    if (had_comma || cursor == NULL || *cursor != '\0') {
         return 0;
     }
 
-    /* Parse numeric tail strictly: accept only full match, no trailing garbage/whitespace. */
-    n = sscanf(index_start, ",index=%zu,limit=%zu,aux=%u%c", &index, &limit, &aux, &tail);
-    if (n != 3) {
-        return 0;
-    }
     if (!lox_event_kind_is_valid(kind)) {
         return 0;
     }
@@ -357,16 +507,6 @@ int lox_event_parse_csv_line_ex(const char *line, lox_event_snapshot_t *out_snap
     memcpy(out_snapshot->reason, reason, sizeof(out_snapshot->reason));
     out_snapshot->block_name[sizeof(out_snapshot->block_name) - 1u] = '\0';
     out_snapshot->reason[sizeof(out_snapshot->reason) - 1u] = '\0';
-    {
-        char decoded[64];
-        lox_decode_kv_value(decoded, sizeof(decoded), out_snapshot->block_name);
-        memcpy(out_snapshot->block_name, decoded, sizeof(out_snapshot->block_name));
-        out_snapshot->block_name[sizeof(out_snapshot->block_name) - 1u] = '\0';
-        lox_decode_kv_value(decoded, sizeof(decoded), out_snapshot->reason);
-        memcpy(out_snapshot->reason, decoded, sizeof(out_snapshot->reason));
-        out_snapshot->reason[sizeof(out_snapshot->reason) - 1u] = '\0';
-    }
-
     out_snapshot->event.kind = (lox_event_kind_t)kind;
     out_snapshot->event.block_name = out_snapshot->block_name;
     out_snapshot->event.reason = out_snapshot->reason;
@@ -477,68 +617,127 @@ int lox_report_parse_kv(const char *line, lox_report_t *out_report, lox_event_ki
         return 0;
     }
     *out_report = snap.report;
+    out_report->last_block = NULL;
+    out_report->last_failed_block = NULL;
+    out_report->reason = NULL;
     *out_event_kind = snap.event_kind;
     return 1;
 }
 
 int lox_report_parse_kv_ex(const char *line, lox_report_snapshot_t *out_snapshot) {
-    char block[64];
-    char reason[64];
     unsigned int result;
     unsigned int action;
     unsigned int kind;
     unsigned int duration_ticks;
     unsigned int persisted;
-    const char *block_start;
-    const char *reason_start;
-    const char *result_start;
-    const char *comma;
-    char tail;
-    int n;
+    const char *cursor;
+    const char *token;
+    size_t token_len;
+    int had_comma;
+    const char *value;
+    size_t value_len;
+    char block[64];
+    char reason[64];
 
     if (line == NULL || out_snapshot == NULL) {
         return 0;
     }
 
-    block_start = line;
-    if (strncmp(block_start, "block=", 6u) != 0) {
+    cursor = line;
+    if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "block", &value, &value_len)) {
         return 0;
     }
-    block_start += 6u;
-    reason_start = strstr(block_start, ",reason=");
-    result_start = strstr(block_start, ",result=");
-    if (reason_start == NULL || result_start == NULL || !(reason_start < result_start)) {
-        return 0;
-    }
-
-    comma = reason_start;
     {
-        size_t copy = (size_t)(comma - block_start);
-        if (copy >= sizeof(block)) {
-            copy = sizeof(block) - 1u;
+        if (value_len == 0u || !lox_decode_kv_value_n(block, sizeof(block), value, value_len)) {
+            return 0;
         }
-        memcpy(block, block_start, copy);
-        block[copy] = '\0';
     }
 
-    reason_start += 8u; /* ",reason=" */
-    comma = result_start;
-    {
-        size_t copy = (size_t)(comma - reason_start);
-        if (copy >= sizeof(reason)) {
-            copy = sizeof(reason) - 1u;
-        }
-        memcpy(reason, reason_start, copy);
-        reason[copy] = '\0';
-    }
-
-    /* Parse numeric tail strictly: accept only full match, no trailing garbage/whitespace. */
-    n = sscanf(result_start, ",result=%u,action=%u,event_kind=%u,duration_ticks=%u,event_persisted=%u%c",
-               &result, &action, &kind, &duration_ticks, &persisted, &tail);
-    if (n != 5) {
+    if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "reason", &value, &value_len)) {
         return 0;
     }
-    if (!lox_action_is_valid(action) || !lox_event_kind_is_valid((int)kind) || result > (unsigned int)LOX_RESULT_UNSUPPORTED || persisted > 1u) {
+    {
+        if (value_len == 0u || !lox_decode_kv_value_n(reason, sizeof(reason), value, value_len)) {
+            return 0;
+        }
+    }
+
+    if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "result", &value, &value_len)) {
+        return 0;
+    }
+    {
+        char token_buf[32];
+        if (value_len >= sizeof(token_buf)) {
+            return 0;
+        }
+        memcpy(token_buf, value, value_len);
+        token_buf[value_len] = '\0';
+        if (!lox_parse_u32_strict(token_buf, &result)) {
+            return 0;
+        }
+    }
+
+    if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "action", &value, &value_len)) {
+        return 0;
+    }
+    {
+        char token_buf[32];
+        if (value_len >= sizeof(token_buf)) {
+            return 0;
+        }
+        memcpy(token_buf, value, value_len);
+        token_buf[value_len] = '\0';
+        if (!lox_parse_u32_strict(token_buf, &action) || !lox_action_is_valid(action)) {
+            return 0;
+        }
+    }
+
+    if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "event_kind", &value, &value_len)) {
+        return 0;
+    }
+    {
+        char token_buf[32];
+        if (value_len >= sizeof(token_buf)) {
+            return 0;
+        }
+        memcpy(token_buf, value, value_len);
+        token_buf[value_len] = '\0';
+        if (!lox_parse_u32_strict(token_buf, &kind) || !lox_event_kind_is_valid((int)kind)) {
+            return 0;
+        }
+    }
+
+    if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "duration_ticks", &value, &value_len)) {
+        return 0;
+    }
+    {
+        char token_buf[32];
+        if (value_len >= sizeof(token_buf)) {
+            return 0;
+        }
+        memcpy(token_buf, value, value_len);
+        token_buf[value_len] = '\0';
+        if (!lox_parse_u32_strict(token_buf, &duration_ticks)) {
+            return 0;
+        }
+    }
+
+    if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "event_persisted", &value, &value_len)) {
+        return 0;
+    }
+    {
+        char token_buf[8];
+        if (value_len >= sizeof(token_buf)) {
+            return 0;
+        }
+        memcpy(token_buf, value, value_len);
+        token_buf[value_len] = '\0';
+        if (!lox_parse_u32_strict(token_buf, &persisted) || persisted > 1u) {
+            return 0;
+        }
+    }
+
+    if (had_comma || cursor == NULL || *cursor != '\0') {
         return 0;
     }
 
@@ -546,16 +745,6 @@ int lox_report_parse_kv_ex(const char *line, lox_report_snapshot_t *out_snapshot
     memcpy(out_snapshot->reason, reason, sizeof(out_snapshot->reason));
     out_snapshot->block_name[sizeof(out_snapshot->block_name) - 1u] = '\0';
     out_snapshot->reason[sizeof(out_snapshot->reason) - 1u] = '\0';
-    {
-        char decoded[64];
-        lox_decode_kv_value(decoded, sizeof(decoded), out_snapshot->block_name);
-        memcpy(out_snapshot->block_name, decoded, sizeof(out_snapshot->block_name));
-        out_snapshot->block_name[sizeof(out_snapshot->block_name) - 1u] = '\0';
-        lox_decode_kv_value(decoded, sizeof(decoded), out_snapshot->reason);
-        memcpy(out_snapshot->reason, decoded, sizeof(out_snapshot->reason));
-        out_snapshot->reason[sizeof(out_snapshot->reason) - 1u] = '\0';
-    }
-
     out_snapshot->report.last_failed_block = out_snapshot->block_name;
     out_snapshot->report.last_block = out_snapshot->block_name;
     out_snapshot->report.reason = out_snapshot->reason;

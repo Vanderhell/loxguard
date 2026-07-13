@@ -41,9 +41,21 @@ int lox_adapter_nvlog_init_file(const char *path, uint32_t size_bytes);
 void lox_adapter_nvlog_shutdown(void);
 void lox_adapter_nvlog_inject_fail_after(int32_t n);
 #ifdef LOXGUARD_TESTING
+typedef struct {
+    int in_use;
+    char block_name[64];
+    uint32_t name_hash;
+    int health_code;
+    int watchdog_state;
+    int recovery_state;
+} lox_adapter_debug_block_state_t;
+
 void lox_adapter_loxdb_reset(void);
 void lox_adapter_loxdb_inject_fail(int enabled);
 uint32_t lox_adapter_loxdb_persist_count(void);
+void lox_adapter_debug_reset_block_states(void);
+size_t lox_adapter_debug_block_state_count(void);
+int lox_adapter_debug_block_state_snapshot(size_t index, lox_adapter_debug_block_state_t *out);
 #endif
 
 #ifdef __cplusplus

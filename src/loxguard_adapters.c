@@ -30,9 +30,12 @@ static int g_recovery_state = 0; /* aggregate state: max over blocks */
 #define LOX_ADAPTER_BLOCK_NAME_MAX 63u
 #define LOX_ADAPTER_DEFAULT_BLOCK "global"
 
+static size_t g_active_block_slot = LOX_ADAPTER_BLOCK_SLOTS;
+
 typedef struct {
     int in_use;
     char block_name[64];
+    uint32_t name_hash;
     int health_code;
     int watchdog_state; /* 0=OK, 1=LATE, 2=STARVED */
     int recovery_state; /* 0=CLOSED, 1=OPEN, 2=HALF_OPEN */
@@ -43,6 +46,7 @@ typedef struct {
 } lox_adapter_block_state_t;
 
 static lox_adapter_block_state_t g_block_states[LOX_ADAPTER_BLOCK_SLOTS];
+static lox_adapter_block_state_t g_block_state_overflow;
 static uint8_t g_bus_last_topic = 0u;
 static uint8_t g_bus_last_kind = 0u;
 
@@ -53,14 +57,37 @@ static const char *lox_block_key(const char *block_name) {
     return block_name;
 }
 
+static uint32_t lox_block_key_hash(const char *key) {
+    const unsigned char *p = (const unsigned char *)key;
+    uint32_t hash = 2166136261u;
+
+    while (*p != '\0') {
+        hash ^= (uint32_t)(*p++);
+        hash *= 16777619u;
+    }
+    return hash;
+}
+
+static int lox_block_name_matches(const lox_adapter_block_state_t *slot, const char *key, uint32_t key_hash) {
+    if (slot == NULL || !slot->in_use) {
+        return 0;
+    }
+    if (slot->name_hash != key_hash) {
+        return 0;
+    }
+    return strcmp(slot->block_name, key) == 0;
+}
+
 static lox_adapter_block_state_t *lox_block_state_get(const char *block_name) {
     const char *key = lox_block_key(block_name);
+    uint32_t key_hash = lox_block_key_hash(key);
     size_t i;
     size_t free_idx = LOX_ADAPTER_BLOCK_SLOTS;
 
     for (i = 0u; i < LOX_ADAPTER_BLOCK_SLOTS; i++) {
         if (g_block_states[i].in_use) {
-            if (strncmp(g_block_states[i].block_name, key, sizeof(g_block_states[i].block_name)) == 0) {
+            if (lox_block_name_matches(&g_block_states[i], key, key_hash)) {
+                g_active_block_slot = i;
                 return &g_block_states[i];
             }
         } else if (free_idx == LOX_ADAPTER_BLOCK_SLOTS) {
@@ -69,43 +96,56 @@ static lox_adapter_block_state_t *lox_block_state_get(const char *block_name) {
     }
 
     if (free_idx == LOX_ADAPTER_BLOCK_SLOTS) {
-        return &g_block_states[0];
+        g_block_state_overflow.in_use = 1;
+        g_block_state_overflow.name_hash = key_hash;
+        strncpy(g_block_state_overflow.block_name, key, LOX_ADAPTER_BLOCK_NAME_MAX);
+        g_block_state_overflow.block_name[LOX_ADAPTER_BLOCK_NAME_MAX] = '\0';
+        g_block_state_overflow.health_code = 0;
+        g_block_state_overflow.watchdog_state = 0;
+        g_block_state_overflow.recovery_state = 0;
+#if defined(LOXGUARD_HAVE_MICRORES) && defined(LOXGUARD_USE_MICRORES)
+        g_block_state_overflow.breaker_ready = 0;
+#endif
+        g_active_block_slot = LOX_ADAPTER_BLOCK_SLOTS;
+        return &g_block_state_overflow;
     }
 
     g_block_states[free_idx].in_use = 1;
     strncpy(g_block_states[free_idx].block_name, key, LOX_ADAPTER_BLOCK_NAME_MAX);
     g_block_states[free_idx].block_name[LOX_ADAPTER_BLOCK_NAME_MAX] = '\0';
+    g_block_states[free_idx].name_hash = key_hash;
     g_block_states[free_idx].health_code = 0;
     g_block_states[free_idx].watchdog_state = 0;
     g_block_states[free_idx].recovery_state = 0;
 #if defined(LOXGUARD_HAVE_MICRORES) && defined(LOXGUARD_USE_MICRORES)
     g_block_states[free_idx].breaker_ready = 0;
 #endif
+    g_active_block_slot = free_idx;
     return &g_block_states[free_idx];
 }
 
 static void lox_refresh_aggregate_states(void) {
-    size_t i;
-    int max_health = 0;
-    int max_watchdog = 0;
-    int max_recovery = 0;
-    for (i = 0u; i < LOX_ADAPTER_BLOCK_SLOTS; i++) {
-        if (!g_block_states[i].in_use) {
-            continue;
-        }
-        if (g_block_states[i].health_code > max_health) {
-            max_health = g_block_states[i].health_code;
-        }
-        if (g_block_states[i].watchdog_state > max_watchdog) {
-            max_watchdog = g_block_states[i].watchdog_state;
-        }
-        if (g_block_states[i].recovery_state > max_recovery) {
-            max_recovery = g_block_states[i].recovery_state;
+    lox_adapter_block_state_t *slot = NULL;
+
+    if (g_active_block_slot < LOX_ADAPTER_BLOCK_SLOTS) {
+        if (g_block_states[g_active_block_slot].in_use) {
+            slot = &g_block_states[g_active_block_slot];
         }
     }
-    g_health_code = max_health;
-    g_watchdog_state = max_watchdog;
-    g_recovery_state = max_recovery;
+    if (slot == NULL && g_active_block_slot == LOX_ADAPTER_BLOCK_SLOTS && g_block_state_overflow.in_use) {
+        slot = &g_block_state_overflow;
+    }
+
+    if (slot == NULL) {
+        g_health_code = 0;
+        g_watchdog_state = 0;
+        g_recovery_state = 0;
+        return;
+    }
+
+    g_health_code = slot->health_code;
+    g_watchdog_state = slot->watchdog_state;
+    g_recovery_state = slot->recovery_state;
 }
 
 #ifdef LOXGUARD_HAVE_MICROHEALTH
@@ -423,6 +463,8 @@ void lox_adapter_watchdog_reset(void) {
             g_block_states[i].watchdog_state = 0;
         }
     }
+    memset(&g_block_state_overflow, 0, sizeof(g_block_state_overflow));
+    g_active_block_slot = LOX_ADAPTER_BLOCK_SLOTS;
     lox_refresh_aggregate_states();
 #if defined(LOXGUARD_HAVE_MICROWDT) && defined(LOXGUARD_USE_MICROWDT)
     if (g_mwdt_ready && g_mwdt_idx >= 0) {
@@ -490,6 +532,8 @@ void lox_adapter_recovery_reset(void) {
             g_block_states[i].recovery_state = 0;
         }
     }
+    memset(&g_block_state_overflow, 0, sizeof(g_block_state_overflow));
+    g_active_block_slot = LOX_ADAPTER_BLOCK_SLOTS;
     lox_refresh_aggregate_states();
 #if defined(LOXGUARD_HAVE_MICRORES) && defined(LOXGUARD_USE_MICRORES)
     for (i = 0u; i < LOX_ADAPTER_BLOCK_SLOTS; i++) {
@@ -576,3 +620,46 @@ uint8_t lox_adapter_bus_last_topic(void) {
 uint8_t lox_adapter_bus_last_kind(void) {
     return g_bus_last_kind;
 }
+
+#ifdef LOXGUARD_TESTING
+void lox_adapter_debug_reset_block_states(void) {
+    memset(g_block_states, 0, sizeof(g_block_states));
+    memset(&g_block_state_overflow, 0, sizeof(g_block_state_overflow));
+    g_active_block_slot = LOX_ADAPTER_BLOCK_SLOTS;
+    g_health_code = 0;
+    g_watchdog_state = 0;
+    g_recovery_state = 0;
+}
+
+size_t lox_adapter_debug_block_state_count(void) {
+    return LOX_ADAPTER_BLOCK_SLOTS + 1u;
+}
+
+int lox_adapter_debug_block_state_snapshot(size_t index, lox_adapter_debug_block_state_t *out) {
+    if (out == NULL) {
+        return 0;
+    }
+    if (index < LOX_ADAPTER_BLOCK_SLOTS) {
+        out->in_use = g_block_states[index].in_use;
+        memcpy(out->block_name, g_block_states[index].block_name, sizeof(out->block_name));
+        out->block_name[sizeof(out->block_name) - 1u] = '\0';
+        out->name_hash = g_block_states[index].name_hash;
+        out->health_code = g_block_states[index].health_code;
+        out->watchdog_state = g_block_states[index].watchdog_state;
+        out->recovery_state = g_block_states[index].recovery_state;
+        return 1;
+    }
+    if (index == LOX_ADAPTER_BLOCK_SLOTS) {
+        out->in_use = g_block_state_overflow.in_use;
+        memcpy(out->block_name, g_block_state_overflow.block_name, sizeof(out->block_name));
+        out->block_name[sizeof(out->block_name) - 1u] = '\0';
+        out->name_hash = g_block_state_overflow.name_hash;
+        out->health_code = g_block_state_overflow.health_code;
+        out->watchdog_state = g_block_state_overflow.watchdog_state;
+        out->recovery_state = g_block_state_overflow.recovery_state;
+        return 1;
+    }
+    memset(out, 0, sizeof(*out));
+    return 0;
+}
+#endif

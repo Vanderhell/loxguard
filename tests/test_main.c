@@ -6,6 +6,7 @@ int main(void) {
     int failed = 0;
 
     expect_reset();
+    failed |= test_phase01_core_regressions_suite();
     failed |= test_span_suite();
     failed |= test_arena_suite();
     failed |= test_pipeline_suite();

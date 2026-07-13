@@ -11,6 +11,7 @@ int test_span_suite(void);
 int test_arena_suite(void);
 int test_pipeline_suite(void);
 int test_pipeline_legacy_suite(void);
+int test_phase01_core_regressions_suite(void);
 int test_loxguard_run_suite(void);
 int test_rtos_bridge_suite(void);
 int test_guarded_module_suite(void);
