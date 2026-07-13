@@ -49,6 +49,10 @@ The project does not vendor companion libraries. If the matching headers/sources
 - `LOXGUARD_USE_MICRORES` (requires `microres`)
 - additional `LOXGUARD_USE_*` switches exist for planned integrations; see `CMakeLists.txt`
 
+The host port selectors `LOX_PORT_FREERTOS_STUB` and `LOX_PORT_CORTEXM_STUB`
+are synthetic mappers used in tests and demos. They are not production RTOS or
+MPU support claims.
+
 Verification scope:
 - CI verifies `default` and `no-ecosystem` builds on Windows/Linux/macOS, plus a clang ASan/UBSan job on Ubuntu.
 - Companion-enabled builds require companion sources and are not part of the default CI matrix.

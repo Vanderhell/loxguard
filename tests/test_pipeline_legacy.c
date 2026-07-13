@@ -76,6 +76,7 @@ int test_pipeline_legacy_suite(void) {
     char report_line[256];
     char mixed_import[512];
     char fuzz_line[192];
+    char parse_line[160];
     size_t incident_idx;
     export_capture_t cap;
     lox_event_t policy_probe;
@@ -134,6 +135,13 @@ int test_pipeline_legacy_suite(void) {
         failed |= expect(strstr(line, "reason=load%3D50%25%2Cbad") != NULL, "csv encodes percent");
         failed |= expect(lox_event_parse_csv_line_ex(line, &parsed_event_local) == 1, "csv parse accepts percent-encoded reason");
         failed |= expect(strcmp(parsed_event_local.event.reason, "load=50%,bad") == 0, "csv decodes percent");
+        strncpy(parse_line, line, sizeof(parse_line) - 1u);
+        parse_line[sizeof(parse_line) - 1u] = '\0';
+        failed |= expect(lox_event_parse_csv_line(parse_line, &parsed) == 1, "csv parse legacy line");
+        failed |= expect(parsed.block_name == NULL, "csv parse legacy clears borrowed block pointer");
+        failed |= expect(parsed.reason == NULL, "csv parse legacy clears borrowed reason pointer");
+        parse_line[0] = 'X';
+        failed |= expect(strcmp(parsed_event_local.event.reason, "load=50%,bad") == 0, "csv parse ex keeps owning snapshot after source mutation");
 
         /* Newline roundtrip (via report kv decode path). */
         bad_report.reason = "line1\nline2";

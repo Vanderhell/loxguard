@@ -14,6 +14,7 @@ typedef struct {
     int calls;
     lox_event_kind_t last_kind;
     lox_action_t last_action;
+    void *last_ctx;
 } recovery_probe_t;
 
 static uint32_t g_now = 0u;
@@ -60,6 +61,7 @@ static void recovery_probe_cb(const lox_event_t *event, lox_action_t action, voi
     p->calls++;
     p->last_action = action;
     p->last_kind = (event == NULL) ? LOX_EVENT_NONE : event->kind;
+    p->last_ctx = user_ctx;
 }
 
 static int scratch_block(lox_guard_ctx_t *g, void *user_ctx) {
@@ -327,6 +329,7 @@ int test_loxguard_run_suite(void) {
         failed |= expect(rprobe.calls == 1, "loxguard_run invokes recovery callback on failure");
         failed |= expect(rprobe.last_kind == LOX_EVENT_BLOCK_WRITE_OUT_OF_BOUNDS, "recovery callback sees incident kind");
         failed |= expect(rprobe.last_action != LOX_ACTION_NONE, "recovery callback receives policy action");
+        failed |= expect(rprobe.last_ctx == &rprobe, "recovery callback receives caller-owned user_ctx");
 
         lox_set_recovery_callback(NULL, NULL);
     }

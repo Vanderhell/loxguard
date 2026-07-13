@@ -9,7 +9,9 @@ extern "C" {
 
 typedef enum {
     LOX_PORT_HOST = 0,
+    /* Synthetic host-side mapper used for compile-time and test-only routing. */
     LOX_PORT_FREERTOS_STUB = 1,
+    /* Synthetic host-side mapper used for compile-time and test-only routing. */
     LOX_PORT_CORTEXM_STUB = 2
 } lox_port_id_t;
 

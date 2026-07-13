@@ -16,14 +16,18 @@ At a high level:
 - **EXPERIMENTAL**: `loxguard_experimental.h` and all headers it includes
 - **DEMO/TEST ONLY**: host demo helpers declared in `loxguard.h`
 
+Experimental headers expose host stubs, adapter hooks, and optional integration
+surfaces. They do not imply production support for RTOS, MPU, shell, or
+companion-backed behavior.
+
 ## Core types
 
 From `include/loxguard.h`:
-- `loxguard_block_cfg_t`: Guard Block configuration (name, timeout, IO spans, scratch, blackbox)
-- `lox_guard_ctx_t`: per-run context passed to a guarded function
-- `lox_blackbox_t`: fixed-size in-memory event record
-- `lox_event_t`: structured event record
-- `lox_report_t`: per-run summary (result, action, duration, persisted flag)
+- `loxguard_block_cfg_t`: Guard Block configuration. `input`, `output`, `scratch`, and `blackbox` are caller-owned and borrowed for the run.
+- `lox_guard_ctx_t`: per-run context passed to a guarded function; the library owns the context object during the call.
+- `lox_blackbox_t`: fixed-size in-memory event record; the blackbox owns copied event text.
+- `lox_event_t`: structured event record; `block_name` and `reason` are borrowed pointers.
+- `lox_report_t`: per-run summary (result, action, duration, persisted flag); string pointers are borrowed.
 
 ## Running a Guard Block
 
@@ -33,6 +37,8 @@ From `include/loxguard.h`:
 Notes:
 - The caller owns and initializes the blackbox (`lox_blackbox_init(...)`).
 - Checked behavior only applies when code uses loxguard checked helpers (spans/arenas), not to arbitrary C pointer use.
+- `lox_blackbox_store(...)` copies event text into blackbox-owned storage.
+- `loxguard_run(...)` returns a report with borrowed string pointers; callers must not free or reuse them as owned memory.
 
 ## Checked spans
 
@@ -51,6 +57,17 @@ Arena helpers provide bounded allocation from a fixed memory block:
 - `lox_blackbox_init`, `lox_blackbox_store`
 - `lox_action_t lox_policy_decide(const lox_event_t *event);`
 - `void lox_set_recovery_callback(lox_recovery_cb_t cb, void *user_ctx);`
+
+The recovery callback is notification-only:
+- it receives the final event/action pair for a run,
+- it does not own the event payload,
+- it cannot propagate an error back into `loxguard`,
+- it is not a cleanup/defer hook for caller resources.
+
+Persistence adapters report failure explicitly through their return value. A
+non-OK persistence status means the event was not durably stored, and
+`lox_report_t.event_persisted` must not be treated as durable evidence when it
+is `0`.
 
 ## Export/import formats (host diagnostics)
 
@@ -72,7 +89,7 @@ The following headers are intentionally **EXPERIMENTAL** for `v1.0.0`:
 - `include/loxguard_ports.h` (port selection stubs)
 - `include/loxguard_rtos_bridge.h` (RTOS bridging helpers; host-tested only)
 - `include/loxguard_shell.h` (host shell command helper)
-- `include/loxguard_profiles.h` (compile-time profile macros)
+- `include/loxguard_profiles.h` (descriptive profile labels only; no API/source gating)
 
 To opt in explicitly, include:
 
@@ -91,6 +108,10 @@ The following helpers are shipped for demo/testing and are not evidence of embed
 - `lox_run_guard_fault_demo(...)`
 - `lox_run_rtos_timeout_demo(...)` (host stub/demo)
 - `lox_run_mpu_fault_demo(...)` (host stub/demo)
+
+The `LOX_PORT_FREERTOS_STUB` and `LOX_PORT_CORTEXM_STUB` values are synthetic
+host-side mappers used in tests and demos. They are not claims of production
+RTOS or MPU support.
 
 ## Related docs
 

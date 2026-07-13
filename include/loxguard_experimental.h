@@ -5,7 +5,8 @@
  * Experimental API surface.
  *
  * Including this header acknowledges that the APIs pulled in here are not part
- * of the stable v1.0.0 contract and may change in any 1.x release.
+ * of the stable v1.0.0 contract, are not production support claims, and may
+ * change in any 1.x release.
  */
 
 #ifndef LOXGUARD_EXPERIMENTAL

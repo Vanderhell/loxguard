@@ -84,7 +84,9 @@ typedef struct {
 
 typedef struct {
     lox_event_kind_t kind;
+    /* Borrowed pointers supplied by the emitter; blackbox storage copies them. */
     const char *block_name;
+    /* Borrowed pointers supplied by the emitter; blackbox storage copies them. */
     const char *reason;
     size_t index;
     size_t limit;
@@ -107,8 +109,11 @@ typedef struct {
 } lox_blackbox_t;
 
 typedef struct {
+    /* Borrowed pointers owned by the caller or by the active report source. */
     const char *last_block;
+    /* Borrowed pointers owned by the caller or by the active report source. */
     const char *last_failed_block;
+    /* Borrowed pointers owned by the caller or by the active report source. */
     const char *reason;
     lox_result_t result;
     lox_action_t action;
@@ -128,6 +133,13 @@ typedef struct {
     int last_event_persisted;
 } lox_guard_ctx_t;
 
+/*
+ * Notification-only callback hook.
+ *
+ * The callback observes the final event/action pair for a run. It does not own
+ * the event payload, cannot signal an error back into loxguard, and is not a
+ * cleanup/defer hook for user resources.
+ */
 typedef void (*lox_recovery_cb_t)(const lox_event_t *event, lox_action_t action, void *user_ctx);
 
 typedef enum {
@@ -140,10 +152,12 @@ typedef struct {
     uint32_t timeout_ms;
     loxguard_criticality_t criticality;
     uint32_t max_failures;
+    /* Caller-owned spans and scratch memory; loxguard borrows them for the run. */
     lox_span_t input;
     lox_span_t output;
     void *scratch;
     size_t scratch_len;
+    /* Caller-owned blackbox storage; loxguard copies events into it. */
     lox_blackbox_t *blackbox;
 } loxguard_block_cfg_t;
 

@@ -38,7 +38,17 @@ EXPERIMENTAL headers (not part of the v1 stable contract):
 - `include/loxguard_ports.h`
 - `include/loxguard_rtos_bridge.h`
 - `include/loxguard_shell.h`
-- `include/loxguard_profiles.h` (compile-time profile switches may evolve)
+- `include/loxguard_profiles.h` (descriptive profile labels only; no API/source gating)
+
+Capability classes used in this repository:
+
+- host stub / synthetic mapper: test-only routing such as `LOX_PORT_FREERTOS_STUB`
+  and `LOX_PORT_CORTEXM_STUB`
+- compile-tested adapter: optional companion-backed adapter code that compiles in
+  a host build when the companion sources are present
+- real platform backend: a backend that runs on target hardware, not just on the host
+- hardware-verified containment: only claim this when raw artifacts are checked in
+  and referenced from `docs/EVIDENCE_MATRIX.md`
 
 Demo/test-only APIs (not a stable contract):
 - Host demo helpers declared in `include/loxguard.h` (see `docs/API.md`)
@@ -56,6 +66,15 @@ The following categories are considered **STABLE** starting at `v1.0.0`:
 Notes:
 - “Checked” behavior applies only when user code uses these span/arena APIs (or macros wrapping them). Arbitrary pointer use in C is not automatically checked.
 - RTOS/MPU and ecosystem integrations are not part of the v1 stable contract.
+
+Ownership and callback notes:
+
+- `lox_event_t.block_name` and `lox_event_t.reason` are borrowed pointers.
+- `lox_report_t.last_block`, `lox_report_t.last_failed_block`, and `lox_report_t.reason` are borrowed pointers.
+- `lox_blackbox_store(...)` copies event text into blackbox-owned storage.
+- `loxguard_run(...)` borrows caller-owned config/scratch/blackbox inputs for the duration of the call.
+- `lox_set_recovery_callback(...)` installs a notification-only hook; it is not a cleanup/defer mechanism and cannot propagate an error back into `loxguard`.
+- A persistence failure must be treated as non-durable evidence; `event_persisted=0` means the event was not durably stored.
 
 ## Export/import format stability (v1.0.0)
 
@@ -110,3 +129,7 @@ For the **STABLE** API surface:
 
 For experimental/demo APIs:
 - No deprecation guarantees are made; they may change without notice in `1.x`.
+
+Profile labels in `include/loxguard_profiles.h` are descriptive only. They do
+not gate stable headers or source files, and they do not upgrade stub/demo
+paths into production claims.

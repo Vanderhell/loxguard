@@ -10,6 +10,7 @@ extern "C" {
 typedef uint32_t (*lox_time_now_fn_t)(void);
 
 int lox_adapter_log_event(const lox_event_t *event);
+/* Returns an explicit status; non-OK means the event was not durably persisted. */
 int lox_adapter_persist_event(const lox_event_t *event);
 uint32_t lox_adapter_now_ms(void);
 void lox_adapter_set_time_now(lox_time_now_fn_t fn);
