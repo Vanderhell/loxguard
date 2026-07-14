@@ -23,6 +23,23 @@ typedef struct {
 static lox_failure_streak_t g_failure_streaks[LOX_FAILURE_STREAK_SLOTS];
 static lox_failure_streak_t g_failure_streak_overflow;
 
+static void loxguard_copy_cstr(char *dst, size_t dst_len, const char *src) {
+    size_t n;
+
+    if (dst == NULL || dst_len == 0u) {
+        return;
+    }
+    n = 0u;
+    if (src != NULL) {
+        n = strlen(src);
+        if (n >= dst_len) {
+            n = dst_len - 1u;
+        }
+        memcpy(dst, src, n);
+    }
+    dst[n] = '\0';
+}
+
 static uint32_t lox_hash_block_name(const char *block_name) {
     const unsigned char *p = (const unsigned char *)((block_name == NULL || block_name[0] == '\0') ? "global" : block_name);
     uint32_t hash = 2166136261u;
@@ -61,14 +78,12 @@ static uint32_t *lox_failure_streak_for_block(const char *block_name) {
     if (free_idx == LOX_FAILURE_STREAK_SLOTS) {
         g_failure_streak_overflow.in_use = 1;
         g_failure_streak_overflow.name_hash = key_hash;
-        strncpy(g_failure_streak_overflow.block_name, key, sizeof(g_failure_streak_overflow.block_name) - 1u);
-        g_failure_streak_overflow.block_name[sizeof(g_failure_streak_overflow.block_name) - 1u] = '\0';
+        loxguard_copy_cstr(g_failure_streak_overflow.block_name, sizeof(g_failure_streak_overflow.block_name), key);
         return &g_failure_streak_overflow.streak;
     }
 
     g_failure_streaks[free_idx].in_use = 1;
-    strncpy(g_failure_streaks[free_idx].block_name, key, sizeof(g_failure_streaks[free_idx].block_name) - 1u);
-    g_failure_streaks[free_idx].block_name[sizeof(g_failure_streaks[free_idx].block_name) - 1u] = '\0';
+    loxguard_copy_cstr(g_failure_streaks[free_idx].block_name, sizeof(g_failure_streaks[free_idx].block_name), key);
     g_failure_streaks[free_idx].name_hash = key_hash;
     g_failure_streaks[free_idx].streak = 0u;
     return &g_failure_streaks[free_idx].streak;
@@ -358,10 +373,8 @@ void lox_blackbox_store(lox_blackbox_t *bb, const lox_event_t *event) {
     }
 
     bb->events[idx] = *event;
-    strncpy(bb->block_names[idx], block, sizeof(bb->block_names[idx]) - 1u);
-    bb->block_names[idx][sizeof(bb->block_names[idx]) - 1u] = '\0';
-    strncpy(bb->reasons[idx], reason, sizeof(bb->reasons[idx]) - 1u);
-    bb->reasons[idx][sizeof(bb->reasons[idx]) - 1u] = '\0';
+    loxguard_copy_cstr(bb->block_names[idx], sizeof(bb->block_names[idx]), block);
+    loxguard_copy_cstr(bb->reasons[idx], sizeof(bb->reasons[idx]), reason);
     for (i = 0u; i < bb->count; i++) {
         bb->events[i].block_name = bb->block_names[i];
         bb->events[i].reason = bb->reasons[i];

@@ -20,6 +20,23 @@ static nvlog_posix_ctx_t g_nvlog_posix;
 static nvlog_hal_t g_nvlog_hal;
 static int g_nvlog_ready = 0;
 
+static void loxguard_copy_cstr(char *dst, size_t dst_len, const char *src) {
+    size_t n;
+
+    if (dst == NULL || dst_len == 0u) {
+        return;
+    }
+    n = 0u;
+    if (src != NULL) {
+        n = strlen(src);
+        if (n >= dst_len) {
+            n = dst_len - 1u;
+        }
+        memcpy(dst, src, n);
+    }
+    dst[n] = '\0';
+}
+
 static int lox_nvlog_init_common(uint32_t size_bytes) {
     if (size_bytes < 256u) {
         return LOXGUARD_ERR_OVERFLOW;
@@ -87,10 +104,10 @@ int lox_adapter_persist_event(const lox_event_t *event) {
     rec.limit = (uint32_t)event->limit;
     rec.aux_code = event->aux_code;
     if (event->block_name != NULL) {
-        strncpy(rec.block_name, event->block_name, sizeof(rec.block_name) - 1u);
+        loxguard_copy_cstr(rec.block_name, sizeof(rec.block_name), event->block_name);
     }
     if (event->reason != NULL) {
-        strncpy(rec.reason, event->reason, sizeof(rec.reason) - 1u);
+        loxguard_copy_cstr(rec.reason, sizeof(rec.reason), event->reason);
     }
 
     if (nvlog_append(&g_nvlog, &rec, (uint16_t)sizeof(rec)) != NVLOG_OK) {

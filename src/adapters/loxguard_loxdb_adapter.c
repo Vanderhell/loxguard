@@ -24,6 +24,23 @@ static uint32_t g_loxdb_persist_count = 0u;
 static int g_loxdb_force_fail = 0;
 static int g_loxdb_ready = 0;
 
+static void loxguard_copy_cstr(char *dst, size_t dst_len, const char *src) {
+    size_t n;
+
+    if (dst == NULL || dst_len == 0u) {
+        return;
+    }
+    n = 0u;
+    if (src != NULL) {
+        n = strlen(src);
+        if (n >= dst_len) {
+            n = dst_len - 1u;
+        }
+        memcpy(dst, src, n);
+    }
+    dst[n] = '\0';
+}
+
 static lox_timestamp_t lox_loxdb_now(void) {
     return (lox_timestamp_t)lox_adapter_now_ms();
 }
@@ -73,10 +90,10 @@ int lox_adapter_loxdb_persist_event(const lox_event_t *event) {
     rec.limit = (uint32_t)event->limit;
     rec.aux_code = event->aux_code;
     if (event->block_name != NULL) {
-        strncpy(rec.block_name, event->block_name, sizeof(rec.block_name) - 1u);
+        loxguard_copy_cstr(rec.block_name, sizeof(rec.block_name), event->block_name);
     }
     if (event->reason != NULL) {
-        strncpy(rec.reason, event->reason, sizeof(rec.reason) - 1u);
+        loxguard_copy_cstr(rec.reason, sizeof(rec.reason), event->reason);
     }
     (void)snprintf(key, sizeof(key), "loxguard_ev_%lu", (unsigned long)g_loxdb_seq++);
     if (lox_kv_set(&g_loxdb, key, &rec, sizeof(rec), 0u) != LOX_OK) {

@@ -28,6 +28,23 @@ static int g_recovery_state = 0; /* aggregate state: max over blocks */
 
 #define LOX_ADAPTER_BLOCK_SLOTS 8u
 #define LOX_ADAPTER_BLOCK_NAME_MAX 63u
+
+static void loxguard_copy_cstr(char *dst, size_t dst_len, const char *src) {
+    size_t n;
+
+    if (dst == NULL || dst_len == 0u) {
+        return;
+    }
+    n = 0u;
+    if (src != NULL) {
+        n = strlen(src);
+        if (n >= dst_len) {
+            n = dst_len - 1u;
+        }
+        memcpy(dst, src, n);
+    }
+    dst[n] = '\0';
+}
 #define LOX_ADAPTER_DEFAULT_BLOCK "global"
 
 static size_t g_active_block_slot = LOX_ADAPTER_BLOCK_SLOTS;
@@ -98,8 +115,7 @@ static lox_adapter_block_state_t *lox_block_state_get(const char *block_name) {
     if (free_idx == LOX_ADAPTER_BLOCK_SLOTS) {
         g_block_state_overflow.in_use = 1;
         g_block_state_overflow.name_hash = key_hash;
-        strncpy(g_block_state_overflow.block_name, key, LOX_ADAPTER_BLOCK_NAME_MAX);
-        g_block_state_overflow.block_name[LOX_ADAPTER_BLOCK_NAME_MAX] = '\0';
+        loxguard_copy_cstr(g_block_state_overflow.block_name, sizeof(g_block_state_overflow.block_name), key);
         g_block_state_overflow.health_code = 0;
         g_block_state_overflow.watchdog_state = 0;
         g_block_state_overflow.recovery_state = 0;
@@ -111,8 +127,7 @@ static lox_adapter_block_state_t *lox_block_state_get(const char *block_name) {
     }
 
     g_block_states[free_idx].in_use = 1;
-    strncpy(g_block_states[free_idx].block_name, key, LOX_ADAPTER_BLOCK_NAME_MAX);
-    g_block_states[free_idx].block_name[LOX_ADAPTER_BLOCK_NAME_MAX] = '\0';
+    loxguard_copy_cstr(g_block_states[free_idx].block_name, sizeof(g_block_states[free_idx].block_name), key);
     g_block_states[free_idx].name_hash = key_hash;
     g_block_states[free_idx].health_code = 0;
     g_block_states[free_idx].watchdog_state = 0;
