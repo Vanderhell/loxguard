@@ -140,7 +140,34 @@ if(LOX_ECOSYSTEM_DIR STREQUAL "")
     unset(_cand)
 endif()
 
+set(LOXGUARD_ANY_REQUESTED_COMPANION OFF)
+foreach(_loxguard_requested_companion IN ITEMS
+    LOXGUARD_USE_NVLOG
+    LOXGUARD_USE_MICROTIMER
+    LOXGUARD_USE_MICROWDT
+    LOXGUARD_USE_MICROASSERT
+    LOXGUARD_USE_PANICDUMP
+    LOXGUARD_USE_MICRORES
+    LOXGUARD_USE_MICROBOOT
+    LOXGUARD_USE_MICROBUS
+    LOXGUARD_USE_MICROCBOR
+    LOXGUARD_USE_MICROFLASH
+    LOXGUARD_USE_MICROSH
+    LOXGUARD_USE_MICRORING
+    LOXGUARD_USE_MICROCONF
+    LOXGUARD_USE_MICROTEST
+    LOXGUARD_USE_LOXDB)
+    if(${_loxguard_requested_companion})
+        set(LOXGUARD_ANY_REQUESTED_COMPANION ON)
+        break()
+    endif()
+endforeach()
+unset(_loxguard_requested_companion)
+
 if(LOX_ECOSYSTEM_DIR STREQUAL "" OR NOT EXISTS "${LOX_ECOSYSTEM_DIR}")
+    if(LOXGUARD_ANY_REQUESTED_COMPANION)
+        loxguard_report_missing_companion("One or more LOXGUARD_USE_* companion options were requested but the ecosystem root is not available; set LOX_ECOSYSTEM_DIR or disable the requested companion gates.")
+    endif()
     message(STATUS "loxguard: ecosystem root not found; building core-only.")
 endif()
 
