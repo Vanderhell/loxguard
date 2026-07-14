@@ -25,8 +25,9 @@ Memory fault containment requires hardware support:
 - or equivalent isolation.
 
 Repository evidence note:
-- This repository currently verifies the **host-tested core** behavior only (see `docs/EVIDENCE_MATRIX.md`).
-- RTOS/MPU “containment” interfaces and demos do not constitute verified embedded behavior unless raw hardware artifacts are checked into `artifacts/evidence/`.
+
+- The host-tested core is VERIFIED in `docs/EVIDENCE_MATRIX.md`.
+- RTOS/MPU containment interfaces and demos are NOT VERIFIED as embedded behavior unless raw hardware artifacts are checked into `artifacts/evidence/` and referenced from `docs/EVIDENCE_MATRIX.md`.
 
 ## Not covered by default
 
@@ -45,7 +46,7 @@ Detect and recover everywhere. Contain where hardware allows.
 
 ## Checked Guard Block limitations
 
-Checked Guard Blocks only protect accesses that go through loxguard's checked APIs or future instrumentation.
+Checked Guard Blocks are VERIFIED WITH DEFINED LIMITS only when accesses go through loxguard's checked APIs or future instrumentation.
 
 They cannot stop arbitrary raw pointer writes in normal C code.
 

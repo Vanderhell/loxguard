@@ -2,7 +2,7 @@
 
 Host-tested C99 library for running user code in a supervised "guard block" that produces structured events and a small local evidence record.
 
-## Status (v1.0.0 release candidate scope)
+## Status (v1.0.0 verification scope)
 
 `v1.0.0` is intended to be a stable public contract for:
 
@@ -20,6 +20,8 @@ Not verified by repository evidence (unless raw artifacts exist under `artifacts
 - companion-enabled ecosystem builds (unless companion sources are checked in and exercised by CI)
 
 Verified-by-repo scope is tracked in `docs/EVIDENCE_MATRIX.md`.
+
+Version/tag review for `v1.0.0` is complete, but this document does not recommend a next version until a later gate-backed evidence set exists.
 
 ## What it does
 

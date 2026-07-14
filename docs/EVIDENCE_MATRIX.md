@@ -1,46 +1,45 @@
 # Evidence Matrix
 
-Date: 2026-05-13  
-Scope: repository-verifiable behavior only (code, tests, CI logs, and checked-in raw artifacts)
+Date: 2026-07-14
+Scope: repository-verifiable behavior only (source, tests, CI definitions, and checked-in raw artifacts)
 
-This file lists what is verified by repository evidence and what is explicitly **NOT VERIFIED**.
+Status legend:
+
+- VERIFIED: the repo contains direct source/test evidence or checked-in raw artifacts for the claim.
+- VERIFIED WITH DEFINED LIMITS: the claim is supported, but only within the stated host/CI constraints.
+- NOT VERIFIED: the repository does not support the claim.
+- INCOMPLETE: the gate or feature exists, but the repo does not yet include the raw evidence needed to promote the claim.
 
 ## Raw artifacts
 
-- Host logs: `artifacts/evidence/host/` (if present)
-- Hardware logs: `artifacts/evidence/esp32/` (placeholders only unless raw logs are added)
-
-## CI scope (GitHub Actions)
-
-Workflow: `.github/workflows/ci.yml`
-
-CI is intended to verify:
-- `default` build + tests
-- `no-ecosystem` build + tests (CI deletes `ecosystem/`)
-- clang ASan/UBSan build + tests (Ubuntu)
-- consumer smoke tests (via CTest): `add_subdirectory` and `install+find_package`
-
-CI does not verify by default:
-- companion-enabled configurations that require external sources under `ecosystem/` / `third_party/`
+- Host logs: `artifacts/evidence/host/`
+- Hardware logs: `artifacts/evidence/esp32/`
 
 ## Claims and status
 
 | Claim | Evidence in repo | Status |
 |---|---|---|
-| Guard Block wrapper executes and reports result/action | Unit tests under `tests/` | VERIFIED |
+| Guard Block wrapper executes and reports result/action | Unit tests under `tests/`, host logs in `artifacts/evidence/host/` | VERIFIED |
 | Checked span helpers reject out-of-bounds operations | Unit tests under `tests/` | VERIFIED |
 | Arena helpers reject overflow / invalid state | Unit tests under `tests/` | VERIFIED |
 | Blackbox stores structured events with bounded rollover | Unit tests under `tests/` | VERIFIED |
-| Export/import format behavior (event/report lines) | Unit tests under `tests/` + `docs/API_STABILITY.md` + `docs/FORMAT_EXPORTS.md` | VERIFIED |
-| Demo “panic/fault” host paths produce structured events | Unit tests under `tests/` | VERIFIED |
-| Library consumption via `add_subdirectory(...)` | Consumer smoke test projects under `tests/consumer/` | VERIFIED (host) |
-| Install + `find_package(loxguard CONFIG REQUIRED)` works | Consumer smoke test projects under `tests/consumer/` | VERIFIED (host) |
-| Companion integrations are present and exercised | `ecosystem/` is not vendored; CI does not build companion profiles | NOT VERIFIED |
+| Export/import format behavior for event and report lines | Unit tests under `tests/`, `docs/API_STABILITY.md`, `docs/FORMAT_EXPORTS.md` | VERIFIED |
+| Demo "panic/fault" host paths produce structured events | Unit tests under `tests/` | VERIFIED |
+| Host build/test verification on Windows | `artifacts/evidence/host/windows_build_verify_notes.txt`, `artifacts/evidence/host/windows_build_verify_ctest.txt` | VERIFIED |
+| Host build/test verification on WSL GCC and Clang | `artifacts/evidence/host/wsl_ubuntu24_gcc_build_gcc.txt`, `artifacts/evidence/host/wsl_ubuntu24_clang_build_clang.txt` | VERIFIED WITH DEFINED LIMITS |
+| Version/tag alignment for `v1.0.0` | `v1.0.0` tag, `CMakeLists.txt`, `include/loxguard.h`, `CHANGELOG.md`, `docs/RELEASE_NOTES_v1.0.0.md`, `tools/version_consistency_check.cmake` | VERIFIED |
+| Companions are checked in under `ecosystem/` | Checked-in source tree under `ecosystem/` | VERIFIED |
+| Companion-enabled configurations are exercised by default CI | `.github/workflows/ci.yml` does not include a companion-source build matrix | NOT VERIFIED |
+| Library consumption via `add_subdirectory(...)` | `tests/consumer/`, `tools/consumer_smoke_test.cmake`, `.github/workflows/ci.yml` | INCOMPLETE |
+| Install + `find_package(loxguard CONFIG REQUIRED)` works | `tests/consumer/`, `tools/consumer_smoke_test.cmake`, `.github/workflows/ci.yml` | INCOMPLETE |
+| Compile-fail contracts gate | `tools/compile_fail_contracts_check.cmake`, `.github/workflows/ci.yml` | INCOMPLETE |
+| ARM compile-only gate | `tools/arm_cortexm_compile_only.cmake`, `.github/workflows/ci.yml` | INCOMPLETE |
+| Embedded hardware behavior (ESP32 or other MCU) | `artifacts/evidence/esp32/` contains placeholders only | NOT VERIFIED |
+| Power-loss / restart consistency | No raw target evidence is checked in | NOT VERIFIED |
 | RTOS/MPU production containment behavior | Stub/demo interfaces only | NOT VERIFIED |
-| Embedded hardware behavior (ESP32 or other MCU) | No raw MCU logs are checked in under `artifacts/evidence/esp32/` | NOT VERIFIED |
-| Power-loss / restart consistency | No raw artifacts are checked in under `artifacts/evidence/esp32/` | NOT VERIFIED |
 
-## Notes
+## Version and release review
 
-- “VERIFIED (host)” means: verified by host CI/tests and/or checked-in host artifacts, not by embedded hardware evidence.
-- Do not describe embedded behavior as verified unless raw artifacts exist under `artifacts/evidence/` and are referenced here.
+- `v1.0.0` is the current tagged release and matches `project(loxguard VERSION 1.0.0)` plus the public header version macros.
+- The release gate checks tag/version consistency through `tools/version_consistency_check.cmake`.
+- This evidence set does not justify a recommended next version.

@@ -19,6 +19,12 @@ Out of scope / not verified by this repository:
 - power-loss / restart consistency
 - companion-enabled ecosystem builds unless the companion sources are checked in and exercised by CI
 
+## Version/tag review
+
+- `v1.0.0` matches `project(loxguard VERSION 1.0.0)` and `include/loxguard.h`.
+- `tools/version_consistency_check.cmake` is the release gate used to enforce tag/version alignment.
+- This evidence set does not justify a recommended next version.
+
 ## API stability
 
 See `docs/API_STABILITY.md` for:

@@ -1,6 +1,6 @@
 # ESP32 Evidence (Optional)
 
-Place raw hardware evidence logs here when making “hardware-verified” claims.
+Place raw hardware evidence logs here when making hardware-verified claims.
 
 Suggested files:
 

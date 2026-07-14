@@ -2,6 +2,13 @@
 
 This folder contains raw, reviewable evidence outputs that back documentation claims (especially `docs/EVIDENCE_MATRIX.md`).
 
+Use the status labels in that matrix exactly as written:
+
+- VERIFIED
+- VERIFIED WITH DEFINED LIMITS
+- NOT VERIFIED
+- INCOMPLETE
+
 ## Layout
 
 - `artifacts/evidence/host/`

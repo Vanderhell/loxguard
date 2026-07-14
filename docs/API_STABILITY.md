@@ -64,7 +64,7 @@ The following categories are considered **STABLE** starting at `v1.0.0`:
 - Checked arena helpers: `lox_arena_t` and the `lox_arena_*` functions
 
 Notes:
-- “Checked” behavior applies only when user code uses these span/arena APIs (or macros wrapping them). Arbitrary pointer use in C is not automatically checked.
+- Checked behavior applies only when user code uses these span/arena APIs (or macros wrapping them). Arbitrary pointer use in C is not automatically checked.
 - RTOS/MPU and ecosystem integrations are not part of the v1 stable contract.
 
 Ownership and callback notes:
