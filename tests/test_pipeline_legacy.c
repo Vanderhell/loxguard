@@ -41,8 +41,32 @@ static void capture_line(const char *line, void *user_ctx) {
         return;
     }
     cap->count++;
-    strncpy(cap->last_line, line, sizeof(cap->last_line) - 1u);
-    cap->last_line[sizeof(cap->last_line) - 1u] = '\0';
+    if (sizeof(cap->last_line) != 0u) {
+        size_t n = strlen(line);
+        if (n >= sizeof(cap->last_line)) {
+            n = sizeof(cap->last_line) - 1u;
+        }
+        memcpy(cap->last_line, line, n);
+        cap->last_line[n] = '\0';
+    }
+}
+
+static void copy_cstr(char *dst, size_t dst_len, const char *src) {
+    size_t n;
+
+    if (dst == NULL || dst_len == 0u) {
+        return;
+    }
+
+    n = 0u;
+    if (src != NULL) {
+        n = strlen(src);
+        if (n >= dst_len) {
+            n = dst_len - 1u;
+        }
+        memcpy(dst, src, n);
+    }
+    dst[n] = '\0';
 }
 
 int test_pipeline_legacy_suite(void) {
@@ -135,8 +159,7 @@ int test_pipeline_legacy_suite(void) {
         failed |= expect(strstr(line, "reason=load%3D50%25%2Cbad") != NULL, "csv encodes percent");
         failed |= expect(lox_event_parse_csv_line_ex(line, &parsed_event_local) == 1, "csv parse accepts percent-encoded reason");
         failed |= expect(strcmp(parsed_event_local.event.reason, "load=50%,bad") == 0, "csv decodes percent");
-        strncpy(parse_line, line, sizeof(parse_line) - 1u);
-        parse_line[sizeof(parse_line) - 1u] = '\0';
+        copy_cstr(parse_line, sizeof(parse_line), line);
         failed |= expect(lox_event_parse_csv_line(parse_line, &parsed) == 1, "csv parse legacy line");
         failed |= expect(parsed.block_name == NULL, "csv parse legacy clears borrowed block pointer");
         failed |= expect(parsed.reason == NULL, "csv parse legacy clears borrowed reason pointer");
@@ -171,8 +194,8 @@ int test_pipeline_legacy_suite(void) {
     }
 
     lox_blackbox_init(&ownership_bb);
-    strcpy(mutable_block, "temp_block");
-    strcpy(mutable_reason, "temp_reason");
+    copy_cstr(mutable_block, sizeof(mutable_block), "temp_block");
+    copy_cstr(mutable_reason, sizeof(mutable_reason), "temp_reason");
     memset(&ownership_event, 0, sizeof(ownership_event));
     ownership_event.kind = LOX_EVENT_BLOCK_TIMEOUT;
     ownership_event.block_name = mutable_block;
@@ -181,8 +204,8 @@ int test_pipeline_legacy_suite(void) {
     ownership_event.limit = 11u;
     ownership_event.aux_code = 13u;
     lox_blackbox_store(&ownership_bb, &ownership_event);
-    strcpy(mutable_block, "mutated_block");
-    strcpy(mutable_reason, "mutated_reason");
+    copy_cstr(mutable_block, sizeof(mutable_block), "mutated_block");
+    copy_cstr(mutable_reason, sizeof(mutable_reason), "mutated_reason");
     failed |= expect(strcmp(ownership_bb.events[0].block_name, "temp_block") == 0, "blackbox owns copied block text");
     failed |= expect(strcmp(ownership_bb.events[0].reason, "temp_reason") == 0, "blackbox owns copied reason text");
 

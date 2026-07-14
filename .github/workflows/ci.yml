@@ -118,12 +118,13 @@ jobs:
       - name: Run consumer smoke
         shell: pwsh
         run: |
-          $work = Join-Path $env:GITHUB_WORKSPACE "build space"
+          $repo = "${{ github.workspace }}"
+          $work = Join-Path $repo "build space"
           $work = Join-Path $work "consumer"
           $work = Join-Path $work "${{ matrix.os }}"
           $work = Join-Path $work "${{ matrix.mode }}"
           $work = Join-Path $work "${{ matrix.config }}"
-          cmake -DMODE=${{ matrix.mode }} -DLOXGUARD_SOURCE_DIR=$env:GITHUB_WORKSPACE -DWORK_DIR="$work" -DBUILD_TYPE=${{ matrix.config }} -DCONFIG=${{ matrix.config }} -P $env:GITHUB_WORKSPACE/tools/consumer_smoke_test.cmake
+          cmake -DMODE=${{ matrix.mode }} -DLOXGUARD_SOURCE_DIR="$repo" -DWORK_DIR="$work" -DBUILD_TYPE=${{ matrix.config }} -DCONFIG=${{ matrix.config }} -P "$repo/tools/consumer_smoke_test.cmake"
 
   static-analysis:
     name: Static analysis (clang-tidy/cppcheck)

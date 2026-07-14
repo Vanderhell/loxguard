@@ -50,15 +50,16 @@ jobs:
 
       - name: Version consistency gate
         shell: pwsh
-        run: cmake -DLOXGUARD_SOURCE_DIR=$env:GITHUB_WORKSPACE -DTAG=${{ github.ref_name }} -P $env:GITHUB_WORKSPACE/tools/version_consistency_check.cmake
+        run: cmake -DLOXGUARD_SOURCE_DIR="${{ github.workspace }}" -DTAG=${{ github.ref_name }} -P "${{ github.workspace }}/tools/version_consistency_check.cmake"
 
       - name: Consumer smoke gate
         shell: pwsh
         run: |
-          $work = Join-Path $env:GITHUB_WORKSPACE "release smoke space"
-          cmake -DMODE=add_subdirectory -DLOXGUARD_SOURCE_DIR=$env:GITHUB_WORKSPACE -DWORK_DIR=(Join-Path $work "add_subdirectory") -DBUILD_TYPE=Debug -DCONFIG=Debug -P $env:GITHUB_WORKSPACE/tools/consumer_smoke_test.cmake
-          cmake -DMODE=install_find_package -DLOXGUARD_SOURCE_DIR=$env:GITHUB_WORKSPACE -DWORK_DIR=(Join-Path $work "install_find_package") -DBUILD_TYPE=Debug -DCONFIG=Debug -P $env:GITHUB_WORKSPACE/tools/consumer_smoke_test.cmake
-          cmake -DMODE=install_find_package_cpp -DLOXGUARD_SOURCE_DIR=$env:GITHUB_WORKSPACE -DWORK_DIR=(Join-Path $work "install_find_package_cpp") -DBUILD_TYPE=Debug -DCONFIG=Debug -P $env:GITHUB_WORKSPACE/tools/consumer_smoke_test.cmake
+          $repo = "${{ github.workspace }}"
+          $work = Join-Path $repo "release smoke space"
+          cmake -DMODE=add_subdirectory -DLOXGUARD_SOURCE_DIR="$repo" -DWORK_DIR=(Join-Path $work "add_subdirectory") -DBUILD_TYPE=Debug -DCONFIG=Debug -P "$repo/tools/consumer_smoke_test.cmake"
+          cmake -DMODE=install_find_package -DLOXGUARD_SOURCE_DIR="$repo" -DWORK_DIR=(Join-Path $work "install_find_package") -DBUILD_TYPE=Debug -DCONFIG=Debug -P "$repo/tools/consumer_smoke_test.cmake"
+          cmake -DMODE=install_find_package_cpp -DLOXGUARD_SOURCE_DIR="$repo" -DWORK_DIR=(Join-Path $work "install_find_package_cpp") -DBUILD_TYPE=Debug -DCONFIG=Debug -P "$repo/tools/consumer_smoke_test.cmake"
 
       - name: Prepare release files
         id: prep
