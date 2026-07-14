@@ -50,7 +50,7 @@ jobs:
 
       - name: Version consistency gate
         shell: pwsh
-        run: cmake -DLOXGUARD_SOURCE_DIR="${{ github.workspace }}" -DTAG=${{ github.ref_name }} -P "${{ github.workspace }}/tools/version_consistency_check.cmake"
+        run: cmake -DLOXGUARD_SOURCE_DIR="${{ github.workspace }}" -DTAG="${{ github.ref_name }}" -P "${{ github.workspace }}/tools/version_consistency_check.cmake"
 
       - name: Consumer smoke gate
         shell: pwsh
