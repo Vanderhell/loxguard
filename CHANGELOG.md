@@ -4,10 +4,17 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
-- Strict warning policy is now applied to project-owned sources and test fixtures.
-- Consumer verification now covers C and C++ install/add_subdirectory smoke tests.
-- Compile-fail, version-consistency, and ARM compile-only build gates were added.
-- CI and release workflows were tightened around build, analysis, and release metadata checks.
+## v1.0.1 (2026-07-14)
+
+### Fixes / release hygiene
+- Silenced project-owned cppcheck warnings without changing runtime behavior.
+- Updated release-facing documentation for the `v1.0.1` tag and current version scope.
+- Added release badges and project links in the README.
+- Bumped the package version and public header version macros to `1.0.1`.
+
+### Notes
+- No API or feature surface change relative to `v1.0.0`.
+- The release evidence remains host-oriented; embedded hardware, power-loss, and RTOS/MPU behavior stay outside the verified scope.
 
 ## v1.0.0 (2026-05-13)
 
