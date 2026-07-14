@@ -27,12 +27,15 @@ Status legend:
 | Demo "panic/fault" host paths produce structured events | Unit tests under `tests/` | VERIFIED |
 | Host build/test verification on Windows | `artifacts/evidence/host/windows_build_verify_notes.txt`, `artifacts/evidence/host/windows_build_verify_ctest.txt` | VERIFIED |
 | Host build/test verification on WSL GCC and Clang | `artifacts/evidence/host/wsl_ubuntu24_gcc_build_gcc.txt`, `artifacts/evidence/host/wsl_ubuntu24_clang_build_clang.txt` | VERIFIED WITH DEFINED LIMITS |
+| GCC strict C99 Debug/Release builds | Existing verification report | VERIFIED WITH DEFINED LIMITS |
+| Clang strict C99 Debug/Release builds | Existing verification report | VERIFIED WITH DEFINED LIMITS |
+| Package install | Existing verification report | VERIFIED WITH DEFINED LIMITS |
 | Version/tag alignment for `v1.0.0` | `v1.0.0` tag, `CMakeLists.txt`, `include/loxguard.h`, `CHANGELOG.md`, `docs/RELEASE_NOTES_v1.0.0.md`, `tools/version_consistency_check.cmake` | VERIFIED |
 | Companions are checked in under `ecosystem/` | Checked-in source tree under `ecosystem/` | VERIFIED |
 | Companion-enabled configurations are exercised by default CI | `.github/workflows/ci.yml` does not include a companion-source build matrix | NOT VERIFIED |
-| Library consumption via `add_subdirectory(...)` | `tests/consumer/`, `tools/consumer_smoke_test.cmake`, `.github/workflows/ci.yml` | INCOMPLETE |
-| Install + `find_package(loxguard CONFIG REQUIRED)` works | `tests/consumer/`, `tools/consumer_smoke_test.cmake`, `.github/workflows/ci.yml` | INCOMPLETE |
-| Compile-fail contracts gate | `tools/compile_fail_contracts_check.cmake`, `.github/workflows/ci.yml` | INCOMPLETE |
+| Library consumption via `add_subdirectory(...)` | `tests/consumer/`, `tools/consumer_smoke_test.cmake`, `.github/workflows/ci.yml`, existing verification report | VERIFIED WITH DEFINED LIMITS |
+| Install + `find_package(loxguard CONFIG REQUIRED)` works | `tests/consumer/`, `tools/consumer_smoke_test.cmake`, `.github/workflows/ci.yml`, existing verification report | VERIFIED WITH DEFINED LIMITS |
+| Compile-fail contracts gate | `tools/compile_fail_contracts_check.cmake`, `.github/workflows/ci.yml`, existing verification report | VERIFIED WITH DEFINED LIMITS |
 | ARM compile-only gate | `tools/arm_cortexm_compile_only.cmake`, `.github/workflows/ci.yml` | INCOMPLETE |
 | Embedded hardware behavior (ESP32 or other MCU) | `artifacts/evidence/esp32/` contains placeholders only | NOT VERIFIED |
 | Power-loss / restart consistency | No raw target evidence is checked in | NOT VERIFIED |
