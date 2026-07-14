@@ -19,7 +19,6 @@ typedef struct {
 
 static uint32_t g_now = 0u;
 static uint32_t now_ms_inc_0(void) { return g_now; }
-static uint32_t now_ms_inc_50(void) { g_now += 50u; return g_now; }
 static uint32_t now_ms_script[8];
 static size_t now_ms_script_n = 0u;
 static size_t now_ms_script_i = 0u;

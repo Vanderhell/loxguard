@@ -37,7 +37,7 @@ jobs:
 
       - name: Configure (${{ matrix.variant }} / ${{ matrix.config }})
         shell: pwsh
-        run: cmake -S . -B ${{ matrix.build_dir }} -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+        run: cmake -S . -B ${{ matrix.build_dir }} -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DLOXGUARD_ENABLE_STRICT_WARNINGS=ON
 
       - name: Build (${{ matrix.variant }} / ${{ matrix.config }})
         shell: pwsh
@@ -56,34 +56,167 @@ jobs:
           path: |
             ${{ matrix.build_dir }}/ctest_${{ matrix.os }}_${{ matrix.variant }}_${{ matrix.config }}.txt
 
-  sanitizers:
-    name: Sanitizers (clang, asan+ubsan)
+  compiler-strict:
+    name: Strict warnings (gcc/clang)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        variant: [default, no-ecosystem]
+        config: [Debug, Release]
+        include:
+          - variant: default
+            build_dir: build_strict_default
+            no_ecosystem: false
+          - variant: no-ecosystem
+            build_dir: build_strict_noeco
+            no_ecosystem: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure ecosystem is absent (no-ecosystem)
+        if: matrix.no_ecosystem
+        shell: bash
+        run: rm -rf ecosystem
+
+      - name: Configure (${{ matrix.compiler }} / ${{ matrix.variant }} / ${{ matrix.config }})
+        shell: bash
+        run: |
+          cmake -S . -B "${{ matrix.build_dir }}" \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler }} \
+            -DCMAKE_BUILD_TYPE=${{ matrix.config }} \
+            -DLOXGUARD_ENABLE_STRICT_WARNINGS=ON
+
+      - name: Build (${{ matrix.compiler }} / ${{ matrix.variant }} / ${{ matrix.config }})
+        shell: bash
+        run: cmake --build "${{ matrix.build_dir }}" --config "${{ matrix.config }}"
+
+      - name: Test (${{ matrix.compiler }} / ${{ matrix.variant }} / ${{ matrix.config }})
+        shell: bash
+        run: ctest --test-dir "${{ matrix.build_dir }}" -C "${{ matrix.config }}" --output-on-failure
+
+  consumer-smoke:
+    name: Consumers (add_subdirectory + install/find_package)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        mode: [add_subdirectory, install_find_package, install_find_package_cpp]
+        config: [Debug, Release]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install consumer smoke compiler deps (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install -y build-essential g++
+
+      - name: Run consumer smoke
+        shell: pwsh
+        run: |
+          $work = Join-Path $env:GITHUB_WORKSPACE "build space"
+          $work = Join-Path $work "consumer"
+          $work = Join-Path $work "${{ matrix.os }}"
+          $work = Join-Path $work "${{ matrix.mode }}"
+          $work = Join-Path $work "${{ matrix.config }}"
+          cmake -DMODE=${{ matrix.mode }} -DLOXGUARD_SOURCE_DIR=$env:GITHUB_WORKSPACE -DWORK_DIR="$work" -DBUILD_TYPE=${{ matrix.config }} -DCONFIG=${{ matrix.config }} -P $env:GITHUB_WORKSPACE/tools/consumer_smoke_test.cmake
+
+  static-analysis:
+    name: Static analysis (clang-tidy/cppcheck)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install analysis tools
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install -y clang-tidy cppcheck
+
+      - name: Configure compile database
+        shell: bash
+        run: cmake -S . -B build_analysis -DCMAKE_BUILD_TYPE=Debug -DLOXGUARD_BUILD_TESTS=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DLOXGUARD_ENABLE_STRICT_WARNINGS=ON
+
+      - name: clang-tidy
+        shell: bash
+        run: |
+          clang-tidy -p build_analysis src/loxguard.c src/loxguard_adapters.c src/loxguard_backends.c src/loxguard_format.c src/loxguard_ports.c src/loxguard_rtos_bridge.c src/loxguard_shell.c --warnings-as-errors='*'
+
+      - name: cppcheck
+        shell: bash
+        run: cppcheck --enable=warning,style,performance,portability --error-exitcode=1 --inline-suppr -I include src tests/consumer
+
+  arm-compile:
+    name: ARM Cortex-M compile-only
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ARM toolchain
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi
+
+      - name: Compile-only gate
+        shell: bash
+        run: |
+          cmake -S . -B build_arm \
+            -DLOXGUARD_BUILD_TESTS=OFF \
+            -DLOXGUARD_ENABLE_STRICT_WARNINGS=ON \
+            -DLOXGUARD_STRICT_COMPANION_GATES=ON \
+            -DCMAKE_C_COMPILER=arm-none-eabi-gcc \
+            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY
+          cmake --build build_arm --target loxguard
+
+  sanitizers:
+    name: Sanitizers (gcc/clang, asan+ubsan)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        variant: [default, no-ecosystem]
+        include:
+          - variant: default
+            build_dir: build_san_default
+            no_ecosystem: false
+          - variant: no-ecosystem
+            build_dir: build_san_noeco
+            no_ecosystem: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure ecosystem is absent (no-ecosystem)
+        if: matrix.no_ecosystem
+        shell: bash
+        run: rm -rf ecosystem
+
       - name: Configure
         shell: bash
         run: |
-          cmake -S . -B build_san \
-            -DCMAKE_C_COMPILER=clang \
+          cmake -S . -B "${{ matrix.build_dir }}" \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler }} \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DLOXGUARD_ENABLE_STRICT_WARNINGS=ON \
             -DCMAKE_C_FLAGS="-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined" \
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
 
       - name: Build
         shell: bash
-        run: cmake --build build_san -j
+        run: cmake --build "${{ matrix.build_dir }}" -j
 
       - name: Test
         shell: bash
         run: |
-          ctest --test-dir build_san --output-on-failure -LE consumer | tee build_san/ctest_sanitizers.txt
+          ctest --test-dir "${{ matrix.build_dir }}" --output-on-failure -LE consumer | tee "${{ matrix.build_dir }}/ctest_sanitizers.txt"
 
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ctest-logs-ubuntu-sanitizers
-          path: build_san/ctest_sanitizers.txt
+          name: ctest-logs-ubuntu-sanitizers-${{ matrix.compiler }}-${{ matrix.variant }}
+          path: ${{ matrix.build_dir }}/ctest_sanitizers.txt

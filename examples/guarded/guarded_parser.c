@@ -1,5 +1,5 @@
-#include "loxguard.h"
 #include "loxguard_checked.h"
+#include "guarded_parser.h"
 
 #define LOX_GUARDED_FILE 1
 

@@ -478,8 +478,11 @@ int lox_adapter_recovery_allow_attempt(void) {
 }
 
 int lox_adapter_recovery_allow_attempt_for_block(const char *block_name) {
-    lox_adapter_block_state_t *slot = lox_block_state_get(block_name);
+#if !defined(LOXGUARD_HAVE_MICRORES) || !defined(LOXGUARD_USE_MICRORES)
+    (void)block_name;
+#endif
 #if defined(LOXGUARD_HAVE_MICRORES) && defined(LOXGUARD_USE_MICRORES)
+    lox_adapter_block_state_t *slot = lox_block_state_get(block_name);
     lox_mres_ensure_init(slot);
     if (slot->breaker_ready) {
         if (mres_breaker_state(&slot->breaker) == MRES_BREAKER_OPEN &&
@@ -498,8 +501,8 @@ void lox_adapter_recovery_report_result(int success) {
 }
 
 void lox_adapter_recovery_report_result_for_block(const char *block_name, int success) {
-    lox_adapter_block_state_t *slot = lox_block_state_get(block_name);
 #if defined(LOXGUARD_HAVE_MICRORES) && defined(LOXGUARD_USE_MICRORES)
+    lox_adapter_block_state_t *slot = lox_block_state_get(block_name);
     lox_mres_ensure_init(slot);
     if (slot->breaker_ready) {
         if (success) {

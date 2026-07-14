@@ -4,7 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
-- (no entries)
+- Strict warning policy is now applied to project-owned sources and test fixtures.
+- Consumer verification now covers C and C++ install/add_subdirectory smoke tests.
+- Compile-fail, version-consistency, and ARM compile-only build gates were added.
+- CI and release workflows were tightened around build, analysis, and release metadata checks.
 
 ## v1.0.0 (2026-05-13)
 

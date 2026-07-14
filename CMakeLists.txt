@@ -13,6 +13,8 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 endif()
 
 option(LOXGUARD_BUILD_TESTS "Build tests and demo executables (default ON only for top-level builds)" ${LOXGUARD_IS_TOP_LEVEL})
+option(LOXGUARD_ENABLE_STRICT_WARNINGS "Enable strict warnings for project-owned sources" ON)
+option(LOXGUARD_STRICT_COMPANION_GATES "Fail when requested companion sources are unavailable" OFF)
 option(LOXGUARD_USE_NVLOG "Enable nvlog host/RAM persistence adapter" OFF)
 option(LOXGUARD_USE_MICROTIMER "Enable microtimer companion timing adapter path" OFF)
 option(LOXGUARD_USE_MICROWDT "Enable microwdt companion watchdog/liveness adapter path" OFF)
@@ -29,17 +31,86 @@ option(LOXGUARD_USE_MICROCONF "Enable microconf companion adapter path when avai
 option(LOXGUARD_USE_MICROTEST "Enable microtest companion smoke test path when available" OFF)
 option(LOXGUARD_USE_LOXDB "Enable loxdb companion event-history adapter path when available" OFF)
 
-add_library(loxguard STATIC
+function(loxguard_report_missing_companion message)
+    if(LOXGUARD_STRICT_COMPANION_GATES)
+        message(FATAL_ERROR "${message}")
+    else()
+        message(WARNING "${message}")
+    endif()
+endfunction()
+
+function(loxguard_apply_strict_warnings)
+    if(NOT LOXGUARD_ENABLE_STRICT_WARNINGS)
+        return()
+    endif()
+
+    foreach(_src IN LISTS ARGN)
+        if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${_src}")
+            set_property(SOURCE "${_src}" APPEND PROPERTY COMPILE_OPTIONS
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:GNU>>:-Wall>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:GNU>>:-Wextra>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:GNU>>:-Wpedantic>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:GNU>>:-Wconversion>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:GNU>>:-Wsign-conversion>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:GNU>>:-Wshadow>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:GNU>>:-Wstrict-prototypes>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:GNU>>:-Wmissing-prototypes>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:GNU>>:-Wformat=2>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:GNU>>:-Wundef>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:GNU>>:-Werror>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:Clang>>:-Wall>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:Clang>>:-Wextra>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:Clang>>:-Wpedantic>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:Clang>>:-Wconversion>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:Clang>>:-Wsign-conversion>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:Clang>>:-Wshadow>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:Clang>>:-Wstrict-prototypes>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:Clang>>:-Wmissing-prototypes>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:Clang>>:-Wformat=2>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:Clang>>:-Wundef>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:Clang>>:-Werror>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:MSVC>>:/W4>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:MSVC>>:/WX>"
+                "$<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:MSVC>>:/permissive->"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-Wall>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-Wextra>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-Wpedantic>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-Wconversion>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-Wsign-conversion>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-Wshadow>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-Wformat=2>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-Wundef>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-Werror>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang>>:-Wall>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang>>:-Wextra>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang>>:-Wpedantic>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang>>:-Wconversion>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang>>:-Wsign-conversion>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang>>:-Wshadow>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang>>:-Wformat=2>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang>>:-Wundef>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang>>:-Werror>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:MSVC>>:/W4>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:MSVC>>:/WX>"
+                "$<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:MSVC>>:/permissive->"
+            )
+        endif()
+    endforeach()
+endfunction()
+
+set(LOXGUARD_PROJECT_SOURCES
     src/loxguard.c
     src/loxguard_adapters.c
-    src/adapters/loxguard_nvlog_adapter.c
-    src/adapters/loxguard_loxdb_adapter.c
     src/loxguard_backends.c
     src/loxguard_format.c
-    src/loxguard_rtos_bridge.c
     src/loxguard_ports.c
+    src/loxguard_rtos_bridge.c
     src/loxguard_shell.c
+    src/adapters/loxguard_nvlog_adapter.c
+    src/adapters/loxguard_loxdb_adapter.c
 )
+
+add_library(loxguard STATIC ${LOXGUARD_PROJECT_SOURCES})
 
 add_library(loxguard::loxguard ALIAS loxguard)
 
@@ -48,6 +119,8 @@ target_include_directories(loxguard
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
+
+loxguard_apply_strict_warnings(${LOXGUARD_PROJECT_SOURCES})
 
 set(LOX_ECOSYSTEM_DIR "" CACHE PATH "Path to loxguard ecosystem/ or third_party/ root. When empty, loxguard auto-discovers.")
 if(LOX_ECOSYSTEM_DIR STREQUAL "")
@@ -95,7 +168,7 @@ if(LOXGUARD_USE_MICROTIMER)
         target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microtimer/include")
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROTIMER=1 LOXGUARD_USE_MICROTIMER=1)
     else()
-        message(WARNING "LOXGUARD_USE_MICROTIMER=ON but microtimer companion library not fully available; building without microtimer backend.")
+        loxguard_report_missing_companion("LOXGUARD_USE_MICROTIMER=ON but microtimer companion library not fully available; building without microtimer backend.")
     endif()
 endif()
 
@@ -105,7 +178,7 @@ if(LOXGUARD_USE_MICROWDT)
         target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microwdt/include")
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROWDT=1 LOXGUARD_USE_MICROWDT=1)
     else()
-        message(WARNING "LOXGUARD_USE_MICROWDT=ON but microwdt companion library not fully available; building without microwdt backend.")
+        loxguard_report_missing_companion("LOXGUARD_USE_MICROWDT=ON but microwdt companion library not fully available; building without microwdt backend.")
     endif()
 endif()
 
@@ -114,7 +187,7 @@ if(LOXGUARD_USE_MICROASSERT)
         target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microassert/include")
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROASSERT=1 LOXGUARD_USE_MICROASSERT=1)
     else()
-        message(WARNING "LOXGUARD_USE_MICROASSERT=ON but microassert companion library is not available in ecosystem/ (or third_party fallback).")
+        loxguard_report_missing_companion("LOXGUARD_USE_MICROASSERT=ON but microassert companion library is not available in ecosystem/ (or third_party fallback).")
     endif()
 endif()
 
@@ -123,7 +196,7 @@ if(LOXGUARD_USE_PANICDUMP)
         target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/panicdump/include")
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_PANICDUMP=1 LOXGUARD_USE_PANICDUMP=1)
     else()
-        message(WARNING "LOXGUARD_USE_PANICDUMP=ON but panicdump companion library is not available in ecosystem/ (or third_party fallback).")
+        loxguard_report_missing_companion("LOXGUARD_USE_PANICDUMP=ON but panicdump companion library is not available in ecosystem/ (or third_party fallback).")
     endif()
 endif()
 
@@ -133,7 +206,7 @@ if(LOXGUARD_USE_MICRORES)
         target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microres/include")
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICRORES=1 LOXGUARD_USE_MICRORES=1)
     else()
-        message(WARNING "LOXGUARD_USE_MICRORES=ON but microres companion library is not available; building without microres backend.")
+        loxguard_report_missing_companion("LOXGUARD_USE_MICRORES=ON but microres companion library is not available; building without microres backend.")
     endif()
 endif()
 
@@ -143,7 +216,7 @@ if(LOXGUARD_USE_MICROBUS)
         target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microbus/include")
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROBUS=1 LOXGUARD_USE_MICROBUS=1)
     else()
-        message(WARNING "LOXGUARD_USE_MICROBUS=ON but microbus companion library is not available; building without microbus backend.")
+        loxguard_report_missing_companion("LOXGUARD_USE_MICROBUS=ON but microbus companion library is not available; building without microbus backend.")
     endif()
 endif()
 
@@ -153,7 +226,7 @@ if(LOXGUARD_USE_MICROSH)
         target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microsh/include")
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROSH=1 LOXGUARD_USE_MICROSH=1)
     else()
-        message(WARNING "LOXGUARD_USE_MICROSH=ON but microsh companion library is not available; building without microsh backend.")
+        loxguard_report_missing_companion("LOXGUARD_USE_MICROSH=ON but microsh companion library is not available; building without microsh backend.")
     endif()
 endif()
 
@@ -162,7 +235,7 @@ if(LOXGUARD_USE_MICROBOOT)
         target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microboot/include")
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROBOOT=1 LOXGUARD_USE_MICROBOOT=1)
     else()
-        message(WARNING "LOXGUARD_USE_MICROBOOT=ON but microboot companion library is not available.")
+        loxguard_report_missing_companion("LOXGUARD_USE_MICROBOOT=ON but microboot companion library is not available.")
     endif()
 endif()
 
@@ -171,7 +244,7 @@ if(LOXGUARD_USE_MICROCBOR)
         target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microcbor/include")
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROCBOR=1 LOXGUARD_USE_MICROCBOR=1)
     else()
-        message(WARNING "LOXGUARD_USE_MICROCBOR=ON but microcbor companion library is not available.")
+        loxguard_report_missing_companion("LOXGUARD_USE_MICROCBOR=ON but microcbor companion library is not available.")
     endif()
 endif()
 
@@ -180,7 +253,7 @@ if(LOXGUARD_USE_MICROFLASH)
         target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microflash/include")
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROFLASH=1 LOXGUARD_USE_MICROFLASH=1)
     else()
-        message(WARNING "LOXGUARD_USE_MICROFLASH=ON but microflash companion library is not available.")
+        loxguard_report_missing_companion("LOXGUARD_USE_MICROFLASH=ON but microflash companion library is not available.")
     endif()
 endif()
 
@@ -189,7 +262,7 @@ if(LOXGUARD_USE_MICRORING)
         target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/micoring/include")
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICRORING=1 LOXGUARD_USE_MICRORING=1)
     else()
-        message(WARNING "LOXGUARD_USE_MICRORING=ON but micoring companion library is not available.")
+        loxguard_report_missing_companion("LOXGUARD_USE_MICRORING=ON but micoring companion library is not available.")
     endif()
 endif()
 
@@ -198,7 +271,7 @@ if(LOXGUARD_USE_MICROCONF)
         target_include_directories(loxguard PRIVATE "${LOX_ECOSYSTEM_DIR}/microconf/include")
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_MICROCONF=1 LOXGUARD_USE_MICROCONF=1)
     else()
-        message(WARNING "LOXGUARD_USE_MICROCONF=ON but microconf companion library is not available.")
+        loxguard_report_missing_companion("LOXGUARD_USE_MICROCONF=ON but microconf companion library is not available.")
     endif()
 endif()
 
@@ -228,7 +301,7 @@ if(LOXGUARD_USE_LOXDB)
         )
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_LOXDB=1 LOXGUARD_USE_LOXDB=1)
     else()
-        message(WARNING "LOXGUARD_USE_LOXDB=ON but loxdb companion library is not fully available; building without loxdb backend.")
+        loxguard_report_missing_companion("LOXGUARD_USE_LOXDB=ON but loxdb companion library is not fully available; building without loxdb backend.")
     endif()
 endif()
 
@@ -247,7 +320,7 @@ if(LOXGUARD_USE_NVLOG)
         )
         target_compile_definitions(loxguard PRIVATE LOXGUARD_HAVE_NVLOG=1 LOXGUARD_USE_NVLOG=1)
     else()
-        message(WARNING "LOXGUARD_USE_NVLOG=ON but nvlog companion library not fully available; building without nvlog adapter backend.")
+        loxguard_report_missing_companion("LOXGUARD_USE_NVLOG=ON but nvlog companion library not fully available; building without nvlog adapter backend.")
     endif()
 endif()
 
@@ -318,7 +391,25 @@ add_executable(loxguard_test
     examples/guarded/guarded_parser.c
 )
 
-target_include_directories(loxguard_test PRIVATE tests)
+loxguard_apply_strict_warnings(
+    tests/test_common.c
+    tests/test_phase01_core.c
+    tests/test_span.c
+    tests/test_arena.c
+    tests/test_pipeline.c
+    tests/test_pipeline_legacy.c
+    tests/test_loxguard_run.c
+    tests/test_rtos_bridge.c
+    tests/test_guarded_module.c
+    tests/test_ports.c
+    tests/test_shell.c
+    tests/test_main.c
+    examples/guarded/guarded_parser.c
+    examples/host_demo.c
+    examples/host_backend_demo.c
+)
+
+target_include_directories(loxguard_test PRIVATE tests examples/guarded)
 target_compile_definitions(loxguard_test PRIVATE LOXGUARD_TESTING=1)
 target_link_libraries(loxguard_test PRIVATE loxguard_testlib)
 
@@ -397,4 +488,48 @@ add_test(
         -P ${CMAKE_SOURCE_DIR}/tools/consumer_smoke_test.cmake
 )
 set_tests_properties(loxguard_consumer_install_find_package PROPERTIES LABELS "consumer")
+
+add_test(
+    NAME loxguard_consumer_install_find_package_cpp
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DMODE=install_find_package_cpp
+        -DLOXGUARD_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -DWORK_DIR=${CMAKE_BINARY_DIR}/consumer_install_find_package_cpp
+        -DBUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DCONFIG=$<CONFIG>
+        -P ${CMAKE_SOURCE_DIR}/tools/consumer_smoke_test.cmake
+)
+set_tests_properties(loxguard_consumer_install_find_package_cpp PROPERTIES LABELS "consumer")
+
+add_test(
+    NAME loxguard_compile_fail_contracts
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DLOXGUARD_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -DWORK_DIR=${CMAKE_BINARY_DIR}
+        -P ${CMAKE_SOURCE_DIR}/tools/compile_fail_contracts_check.cmake
+)
+
+add_test(
+    NAME loxguard_version_consistency
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DLOXGUARD_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -DTAG=v${PROJECT_VERSION}
+        -P ${CMAKE_SOURCE_DIR}/tools/version_consistency_check.cmake
+)
+
+find_program(ARM_NONE_EABI_GCC NAMES arm-none-eabi-gcc)
+if(ARM_NONE_EABI_GCC)
+    add_test(
+        NAME loxguard_arm_compile_only
+        COMMAND
+            ${CMAKE_COMMAND}
+            -DLOXGUARD_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -DARM_NONE_EABI_GCC=${ARM_NONE_EABI_GCC}
+            -DWORK_DIR=${CMAKE_BINARY_DIR}
+            -P ${CMAKE_SOURCE_DIR}/tools/arm_cortexm_compile_only.cmake
+    )
+endif()
 endif()

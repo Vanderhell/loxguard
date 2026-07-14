@@ -41,6 +41,7 @@ int lox_adapter_nvlog_init_ram(uint32_t size_bytes);
 int lox_adapter_nvlog_init_file(const char *path, uint32_t size_bytes);
 void lox_adapter_nvlog_shutdown(void);
 void lox_adapter_nvlog_inject_fail_after(int32_t n);
+int lox_adapter_loxdb_persist_event(const lox_event_t *event);
 #ifdef LOXGUARD_TESTING
 typedef struct {
     int in_use;

@@ -19,7 +19,7 @@ jobs:
 
       - name: Configure default
         shell: pwsh
-        run: cmake -S . -B build
+        run: cmake -S . -B build -DLOXGUARD_ENABLE_STRICT_WARNINGS=ON
 
       - name: Build default
         shell: pwsh
@@ -38,7 +38,7 @@ jobs:
 
       - name: Configure no-ecosystem default
         shell: pwsh
-        run: cmake -S . -B build_noeco
+        run: cmake -S . -B build_noeco -DLOXGUARD_ENABLE_STRICT_WARNINGS=ON
 
       - name: Build no-ecosystem default
         shell: pwsh
@@ -47,6 +47,18 @@ jobs:
       - name: Test no-ecosystem default
         shell: pwsh
         run: ctest --test-dir build_noeco -C Debug --output-on-failure | Tee-Object -FilePath build_noeco/ctest_windows_noeco.txt
+
+      - name: Version consistency gate
+        shell: pwsh
+        run: cmake -DLOXGUARD_SOURCE_DIR=$env:GITHUB_WORKSPACE -DTAG=${{ github.ref_name }} -P $env:GITHUB_WORKSPACE/tools/version_consistency_check.cmake
+
+      - name: Consumer smoke gate
+        shell: pwsh
+        run: |
+          $work = Join-Path $env:GITHUB_WORKSPACE "release smoke space"
+          cmake -DMODE=add_subdirectory -DLOXGUARD_SOURCE_DIR=$env:GITHUB_WORKSPACE -DWORK_DIR=(Join-Path $work "add_subdirectory") -DBUILD_TYPE=Debug -DCONFIG=Debug -P $env:GITHUB_WORKSPACE/tools/consumer_smoke_test.cmake
+          cmake -DMODE=install_find_package -DLOXGUARD_SOURCE_DIR=$env:GITHUB_WORKSPACE -DWORK_DIR=(Join-Path $work "install_find_package") -DBUILD_TYPE=Debug -DCONFIG=Debug -P $env:GITHUB_WORKSPACE/tools/consumer_smoke_test.cmake
+          cmake -DMODE=install_find_package_cpp -DLOXGUARD_SOURCE_DIR=$env:GITHUB_WORKSPACE -DWORK_DIR=(Join-Path $work "install_find_package_cpp") -DBUILD_TYPE=Debug -DCONFIG=Debug -P $env:GITHUB_WORKSPACE/tools/consumer_smoke_test.cmake
 
       - name: Prepare release files
         id: prep

@@ -50,3 +50,13 @@ examples/**/.theia/
 # Local companion ecosystem checkouts (not tracked in this repo)
 ecosystem/*
 !ecosystem/.gitkeep
+/build-phase01-wsl
+/build-phase02-wsl
+/build_phase1
+/prompts
+/build_phase3
+/build_phase3_clang
+/build_phase3_gcc
+/build_phase3_noeco
+/build_san_clang
+/build_san_gcc

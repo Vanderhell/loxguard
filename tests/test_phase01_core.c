@@ -222,7 +222,6 @@ static int check_blackbox_and_block_state(void) {
     lox_event_t source;
     char block[80];
     char reason[80];
-    char msg[160];
     lox_adapter_debug_block_state_t state;
     size_t slot_count;
     int failed = 0;

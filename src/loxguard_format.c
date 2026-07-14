@@ -84,13 +84,6 @@ static int lox_decode_kv_value_n(char *dst, size_t dst_len, const char *src, siz
     return 1;
 }
 
-static int lox_decode_kv_value(char *dst, size_t dst_len, const char *src) {
-    if (src == NULL) {
-        return lox_decode_kv_value_n(dst, dst_len, NULL, 0u);
-    }
-    return lox_decode_kv_value_n(dst, dst_len, src, strlen(src));
-}
-
 static int lox_event_kind_is_valid(int kind) {
     return kind >= (int)LOX_EVENT_NONE && kind <= (int)LOX_EVENT_BLOCK_FAULT;
 }
@@ -230,7 +223,7 @@ size_t lox_event_format_csv(const lox_event_t *event, char *out, size_t out_len)
         n = snprintf(
             out,
             out_len,
-            "kind=%d,block=%s,reason=%s,index=%zu,limit=%zu,aux=%u",
+            "kind=%d,block=%s,reason=%s,index=%zu,limit=%zu,aux=%" PRIu32,
             (int)event->kind,
             block_buf,
             reason_buf,
@@ -399,7 +392,7 @@ int lox_event_parse_csv_line(const char *line, lox_event_t *out_event) {
 
 int lox_event_parse_csv_line_ex(const char *line, lox_event_snapshot_t *out_snapshot) {
     int kind;
-    unsigned int aux;
+    uint32_t aux;
     size_t index;
     size_t limit;
     const char *cursor;
@@ -567,7 +560,7 @@ size_t lox_report_format_kv(const lox_report_t *report, const lox_event_t *event
     int n;
     const char *block;
     const char *reason;
-    unsigned int kind;
+    uint32_t kind;
     char block_buf[64];
     char reason_buf[64];
 
@@ -586,11 +579,11 @@ size_t lox_report_format_kv(const lox_report_t *report, const lox_event_t *event
         n = snprintf(
             out,
             out_len,
-            "block=%s,reason=%s,result=%u,action=%u,event_kind=%u,duration_ticks=%u,event_persisted=%u",
+            "block=%s,reason=%s,result=%" PRIu32 ",action=%" PRIu32 ",event_kind=%" PRIu32 ",duration_ticks=%" PRIu32 ",event_persisted=%u",
             block_buf,
             reason_buf,
-            (unsigned int)report->result,
-            (unsigned int)report->action,
+            (uint32_t)report->result,
+            (uint32_t)report->action,
             kind,
             report->duration_ticks,
             (unsigned int)(report->event_persisted ? 1u : 0u)
@@ -625,11 +618,11 @@ int lox_report_parse_kv(const char *line, lox_report_t *out_report, lox_event_ki
 }
 
 int lox_report_parse_kv_ex(const char *line, lox_report_snapshot_t *out_snapshot) {
-    unsigned int result;
-    unsigned int action;
-    unsigned int kind;
-    unsigned int duration_ticks;
-    unsigned int persisted;
+    uint32_t result;
+    uint32_t action;
+    uint32_t kind;
+    uint32_t duration_ticks;
+    uint32_t persisted;
     const char *cursor;
     const char *token;
     size_t token_len;
