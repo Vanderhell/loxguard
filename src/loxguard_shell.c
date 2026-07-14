@@ -55,6 +55,7 @@ static int lox_cmd_status(int argc, const char **argv, void *user) {
     return 0;
 }
 
+// cppcheck-suppress constParameterCallback
 static int lox_cmd_blackbox(int argc, const char **argv, void *user) {
     const lox_shell_ctx_t *ctx = (const lox_shell_ctx_t *)user;
     (void)argc;

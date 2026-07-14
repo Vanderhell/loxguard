@@ -140,7 +140,7 @@ static lox_adapter_block_state_t *lox_block_state_get(const char *block_name) {
 }
 
 static void lox_refresh_aggregate_states(void) {
-    lox_adapter_block_state_t *slot = NULL;
+    const lox_adapter_block_state_t *slot = NULL;
 
     if (g_active_block_slot < LOX_ADAPTER_BLOCK_SLOTS) {
         if (g_block_states[g_active_block_slot].in_use) {
@@ -373,9 +373,9 @@ int lox_adapter_log_event(const lox_event_t *event) {
 #endif
 #if defined(LOXGUARD_HAVE_MICROBUS) && defined(LOXGUARD_USE_MICROBUS)
     if (event != NULL) {
-        uint8_t payload[2];
         lox_mbus_ensure_init();
         if (g_mbus_ready) {
+            uint8_t payload[2];
             payload[0] = (uint8_t)event->kind;
             payload[1] = (uint8_t)(event->aux_code & 0xFFu);
             g_bus_last_topic = lox_event_to_bus_topic(event->kind);
@@ -467,7 +467,7 @@ int lox_adapter_watchdog_state_get(void) {
 }
 
 int lox_adapter_watchdog_state_get_for_block(const char *block_name) {
-    lox_adapter_block_state_t *slot = lox_block_state_get(block_name);
+    const lox_adapter_block_state_t *slot = lox_block_state_get(block_name);
     return slot->watchdog_state;
 }
 
@@ -497,8 +497,8 @@ int lox_adapter_recovery_allow_attempt_for_block(const char *block_name) {
     (void)block_name;
 #endif
 #if defined(LOXGUARD_HAVE_MICRORES) && defined(LOXGUARD_USE_MICRORES)
-    lox_adapter_block_state_t *slot = lox_block_state_get(block_name);
-    lox_mres_ensure_init(slot);
+    const lox_adapter_block_state_t *slot = lox_block_state_get(block_name);
+    lox_mres_ensure_init((lox_adapter_block_state_t *)slot);
     if (slot->breaker_ready) {
         if (mres_breaker_state(&slot->breaker) == MRES_BREAKER_OPEN &&
             mres_breaker_remaining_ms(&slot->breaker, lox_mres_clock) > 0u) {
@@ -539,7 +539,7 @@ int lox_adapter_recovery_state_get(void) {
 }
 
 int lox_adapter_recovery_state_get_for_block(const char *block_name) {
-    lox_adapter_block_state_t *slot = lox_block_state_get(block_name);
+    const lox_adapter_block_state_t *slot = lox_block_state_get(block_name);
     return slot->recovery_state;
 }
 
@@ -600,7 +600,7 @@ int lox_adapter_health_get(void) {
 }
 
 int lox_adapter_health_get_for_block(const char *block_name) {
-    lox_adapter_block_state_t *slot = lox_block_state_get(block_name);
+    const lox_adapter_block_state_t *slot = lox_block_state_get(block_name);
     return slot->health_code;
 }
 

@@ -204,10 +204,6 @@ static int lox_parse_int_strict(const char *value, int *out) {
 
 size_t lox_event_format_csv(const lox_event_t *event, char *out, size_t out_len) {
     int n;
-    char block_buf[64];
-    char reason_buf[64];
-    const char *block;
-    const char *reason;
 
     if (out == NULL || out_len == 0u) {
         return 0u;
@@ -216,6 +212,11 @@ size_t lox_event_format_csv(const lox_event_t *event, char *out, size_t out_len)
     if (event == NULL) {
         n = snprintf(out, out_len, "kind=0,block=none,reason=none,index=0,limit=0,aux=0");
     } else {
+        char block_buf[64];
+        char reason_buf[64];
+        const char *block;
+        const char *reason;
+
         block = event->block_name ? event->block_name : "none";
         reason = event->reason ? event->reason : "none";
         lox_encode_kv_value(block_buf, sizeof(block_buf), block);
@@ -299,8 +300,6 @@ size_t lox_blackbox_export_csv_buffer_ex(
     size_t start;
     size_t i;
     size_t pos;
-    size_t written;
-    char line[160];
 
     if (out == NULL || out_len == 0u) {
         return 0u;
@@ -333,6 +332,8 @@ size_t lox_blackbox_export_csv_buffer_ex(
     }
 
     for (i = start; i < bb->count; i++) {
+        size_t written;
+        char line[160];
         written = lox_event_format_csv(&bb->events[i], line, sizeof(line));
         if (written == 0u && line[0] == '\0') {
             continue;
@@ -525,7 +526,6 @@ size_t lox_blackbox_import_csv_buffer(const char *csv, lox_blackbox_t *out_bb) {
         const char *line_start = p;
         const char *line_end = p;
         size_t line_len;
-        char line[160];
         lox_event_snapshot_t snap;
 
         while (*line_end != '\0' && *line_end != '\n' && *line_end != '\r') {
@@ -535,6 +535,7 @@ size_t lox_blackbox_import_csv_buffer(const char *csv, lox_blackbox_t *out_bb) {
         line_len = (size_t)(line_end - line_start);
         if (line_len > 0u) {
             size_t copy = line_len;
+            char line[160];
             if (copy >= sizeof(line)) {
                 copy = sizeof(line) - 1u;
             }
@@ -558,11 +559,6 @@ size_t lox_blackbox_import_csv_buffer(const char *csv, lox_blackbox_t *out_bb) {
 
 size_t lox_report_format_kv(const lox_report_t *report, const lox_event_t *event, char *out, size_t out_len) {
     int n;
-    const char *block;
-    const char *reason;
-    uint32_t kind;
-    char block_buf[64];
-    char reason_buf[64];
 
     if (out == NULL || out_len == 0u) {
         return 0u;
@@ -571,6 +567,12 @@ size_t lox_report_format_kv(const lox_report_t *report, const lox_event_t *event
     if (report == NULL) {
         n = snprintf(out, out_len, "block=none,reason=NONE,result=0,action=0,event_kind=0,duration_ticks=0,event_persisted=0");
     } else {
+        const char *block;
+        const char *reason;
+        uint32_t kind;
+        char block_buf[64];
+        char reason_buf[64];
+
         block = (report->last_block == NULL) ? "none" : report->last_block;
         reason = (report->reason == NULL) ? "NONE" : report->reason;
         lox_encode_kv_value(block_buf, sizeof(block_buf), block);
@@ -620,7 +622,6 @@ int lox_report_parse_kv(const char *line, lox_report_t *out_report, lox_event_ki
 int lox_report_parse_kv_ex(const char *line, lox_report_snapshot_t *out_snapshot) {
     uint32_t result;
     uint32_t action;
-    uint32_t kind;
     uint32_t duration_ticks;
     uint32_t persisted;
     const char *cursor;
@@ -689,6 +690,7 @@ int lox_report_parse_kv_ex(const char *line, lox_report_snapshot_t *out_snapshot
         return 0;
     }
     {
+        uint32_t kind;
         char token_buf[32];
         if (value_len >= sizeof(token_buf)) {
             return 0;
@@ -698,6 +700,7 @@ int lox_report_parse_kv_ex(const char *line, lox_report_snapshot_t *out_snapshot
         if (!lox_parse_u32_strict(token_buf, &kind) || !lox_event_kind_is_valid((int)kind)) {
             return 0;
         }
+        out_snapshot->event_kind = (lox_event_kind_t)kind;
     }
 
     if (!lox_token_next(&cursor, &token, &token_len, &had_comma) || !lox_token_value(token, token_len, "duration_ticks", &value, &value_len)) {
@@ -745,6 +748,5 @@ int lox_report_parse_kv_ex(const char *line, lox_report_snapshot_t *out_snapshot
     out_snapshot->report.action = (lox_action_t)action;
     out_snapshot->report.duration_ticks = duration_ticks;
     out_snapshot->report.event_persisted = (persisted == 1u) ? 1 : 0;
-    out_snapshot->event_kind = (lox_event_kind_t)kind;
     return 1;
 }

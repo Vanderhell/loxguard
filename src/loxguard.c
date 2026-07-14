@@ -364,11 +364,9 @@ void lox_blackbox_store(lox_blackbox_t *bb, const lox_event_t *event) {
     if (bb->count < capacity) {
         idx = bb->count++;
     } else {
-        if (capacity > 0u) {
-            memmove(&bb->events[0], &bb->events[1], (capacity - 1u) * sizeof(bb->events[0]));
-            memmove(&bb->block_names[0], &bb->block_names[1], (capacity - 1u) * sizeof(bb->block_names[0]));
-            memmove(&bb->reasons[0], &bb->reasons[1], (capacity - 1u) * sizeof(bb->reasons[0]));
-        }
+        memmove(&bb->events[0], &bb->events[1], (capacity - 1u) * sizeof(bb->events[0]));
+        memmove(&bb->block_names[0], &bb->block_names[1], (capacity - 1u) * sizeof(bb->block_names[0]));
+        memmove(&bb->reasons[0], &bb->reasons[1], (capacity - 1u) * sizeof(bb->reasons[0]));
         idx = capacity - 1u;
     }
 
@@ -468,28 +466,28 @@ static lox_report_t lox_finalize_report(const lox_guard_ctx_t *ctx, int rc) {
     report.last_block = ctx->block_name;
     report.last_failed_block = NULL;
     report.reason = "NONE";
-    report.result = LOX_RESULT_NONE;
     report.action = LOX_ACTION_NONE;
     report.duration_ticks = ctx->duration_ticks;
     report.event_persisted = ctx->last_event_persisted;
 
     if (rc != LOXGUARD_OK) {
+        lox_result_t result;
         report.last_failed_block = ctx->block_name;
         report.reason = (ctx->last_event.reason == NULL) ? "ERROR" : ctx->last_event.reason;
         report.action = lox_policy_decide(&ctx->last_event);
+        result = LOX_RESULT_ERROR;
         if (ctx->last_event.kind == LOX_EVENT_BLOCK_TIMEOUT) {
-            report.result = LOX_RESULT_TIMEOUT;
+            result = LOX_RESULT_TIMEOUT;
         } else if (ctx->last_event.kind == LOX_EVENT_BLOCK_WRITE_OUT_OF_BOUNDS) {
-            report.result = LOX_RESULT_BOUNDS;
+            result = LOX_RESULT_BOUNDS;
         } else if (ctx->last_event.kind == LOX_EVENT_BLOCK_ARENA_OVERFLOW) {
-            report.result = LOX_RESULT_ARENA;
+            result = LOX_RESULT_ARENA;
         } else if (ctx->last_event.kind == LOX_EVENT_BLOCK_MEMORY_FAULT) {
-            report.result = LOX_RESULT_MEMORY_FAULT;
+            result = LOX_RESULT_MEMORY_FAULT;
         } else if (ctx->last_event.kind == LOX_EVENT_BLOCK_UNSUPPORTED) {
-            report.result = LOX_RESULT_UNSUPPORTED;
-        } else {
-            report.result = LOX_RESULT_ERROR;
+            result = LOX_RESULT_UNSUPPORTED;
         }
+        report.result = result;
         lox_invoke_recovery(&ctx->last_event, report.action);
     } else {
         report.result = LOX_RESULT_OK;
@@ -518,7 +516,7 @@ lox_report_t loxguard_run(const loxguard_block_cfg_t *cfg, loxguard_fn_t fn, voi
     int have_arena = 0;
     int rc;
     uint32_t end_ticks;
-    uint32_t *failure_streak;
+    const uint32_t *failure_streak;
 
     memset(&guard, 0, sizeof(guard));
 
