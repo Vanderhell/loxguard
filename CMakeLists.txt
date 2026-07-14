@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(loxguard VERSION 1.0.1 LANGUAGES C)
+project(loxguard VERSION 1.0.2 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)

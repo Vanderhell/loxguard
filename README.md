@@ -5,9 +5,9 @@
 
 Host-tested C99 library for running user code in a supervised "guard block" that produces structured events and a small local evidence record.
 
-## Status (v1.0.1 verification scope)
+## Status (v1.0.2 verification scope)
 
-`v1.0.1` is intended to be a stable public contract for:
+`v1.0.2` is intended to be a stable public contract for:
 
 - Guard Block execution (`loxguard_run(...)`)
 - Checked Span/Arena helpers (`lox_span_*`, `lox_arena_*`, and `loxguard_checked.h` macros)
@@ -24,7 +24,7 @@ Not verified by repository evidence (unless raw artifacts exist under `artifacts
 
 Verified-by-repo scope is tracked in `docs/EVIDENCE_MATRIX.md`.
 
-Version/tag review for `v1.0.1` is complete, but this document does not recommend a next version until a later gate-backed evidence set exists.
+Version/tag review for `v1.0.2` is complete, but this document does not recommend a next version until a later gate-backed evidence set exists.
 
 ## What it does
 
@@ -118,7 +118,7 @@ Cookbook-style integration examples live in `docs/INTEGRATION.md`; the repositor
 - API: `docs/API.md`
 - API stability: `docs/API_STABILITY.md`
 - Integration: `docs/INTEGRATION.md`
-- Release notes (current): `docs/RELEASE_NOTES_v1.0.1.md`
+- Release notes (current): `docs/RELEASE_NOTES_v1.0.2.md`
 - Issues: https://github.com/Vanderhell/loxguard/issues
 
 ## License

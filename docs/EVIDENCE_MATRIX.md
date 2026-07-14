@@ -30,7 +30,7 @@ Status legend:
 | GCC strict C99 Debug/Release builds | Existing verification report | VERIFIED WITH DEFINED LIMITS |
 | Clang strict C99 Debug/Release builds | Existing verification report | VERIFIED WITH DEFINED LIMITS |
 | Package install | Existing verification report | VERIFIED WITH DEFINED LIMITS |
-| Version/tag alignment for `v1.0.1` | `v1.0.1` tag, `CMakeLists.txt`, `include/loxguard.h`, `CHANGELOG.md`, `docs/RELEASE_NOTES_v1.0.1.md`, `tools/version_consistency_check.cmake` | VERIFIED |
+| Version/tag alignment for `v1.0.2` | `v1.0.2` tag, `CMakeLists.txt`, `include/loxguard.h`, `CHANGELOG.md`, `docs/RELEASE_NOTES_v1.0.2.md`, `tools/version_consistency_check.cmake` | VERIFIED |
 | Companions are checked in under `ecosystem/` | Checked-in source tree under `ecosystem/` | VERIFIED |
 | Companion-enabled configurations are exercised by default CI | `.github/workflows/ci.yml` does not include a companion-source build matrix | NOT VERIFIED |
 | Library consumption via `add_subdirectory(...)` | `tests/consumer/`, `tools/consumer_smoke_test.cmake`, `.github/workflows/ci.yml`, existing verification report | VERIFIED WITH DEFINED LIMITS |
@@ -43,6 +43,6 @@ Status legend:
 
 ## Version and release review
 
-- `v1.0.1` is the current tagged release and matches `project(loxguard VERSION 1.0.1)` plus the public header version macros.
+- `v1.0.2` is the current tagged release and matches `project(loxguard VERSION 1.0.2)` plus the public header version macros.
 - The release gate checks tag/version consistency through `tools/version_consistency_check.cmake`.
 - This evidence set does not justify a recommended next version.

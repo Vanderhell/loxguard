@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## v1.0.2 (2026-07-14)
+
+### Fixes / release hygiene
+- Fixed release/tag automation so the release workflow uses the full semantic tag value.
+- Bumped the package version and public header version macros to `1.0.2`.
+- Refreshed release-facing documentation for the current tag and version scope.
+
+### Notes
+- No API or feature surface change relative to `v1.0.1`.
+- The release evidence remains host-oriented; embedded hardware, power-loss, and RTOS/MPU behavior stay outside the verified scope.
+
 ## v1.0.1 (2026-07-14)
 
 ### Fixes / release hygiene
